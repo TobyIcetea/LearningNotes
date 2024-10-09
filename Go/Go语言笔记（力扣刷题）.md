@@ -60,6 +60,27 @@ func twoSum(nums []int, target int) []int {
 3. `if` 语句中分号的作用：go 语言允许在 `if` 语句中进行一个简单的赋值语句，并用分号隔开，接着再判断条件。这种写法很常见，尤其是在需要同时赋值和判断的场景下。
 4. go 语言中的 `nil` 表示空指针。
 
+## 2. 合并两个有序数组
+
+![image-20241009102720407](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20241009102720407.png)
+
+### 2.1 合并后排序
+
+```go
+func merge(nums1 []int, m int, nums2 []int, n int) {
+    copy(nums1[m:], nums2)
+    sort.Ints(nums1)
+}
+```
+
+代码解释：
+
+- `copy(nums1[m:], nums2)`：将 `nums2` 中的值全部复制到 `nums1` 从 `m` 开始往后的位置。
+    - 这个题目中，是已经将 `nums1` 的容量设置为 `m + n` 了，才可以这样操作。否则就要先扩充 `nums1` 的容量，才能继续后面的 `copy` 操作。
+- go 语言中调用系统排序库的方法：`sort.Ints(nums)`。
+
+
+
 
 
 
@@ -76,7 +97,7 @@ func twoSum(nums []int, target int) []int {
 
 待做的题目：
 
-88、70、20、14、121、21、206、2235、704、27、26
+70、20、14、121、21、206、2235、704、27、26
 
 9、169、283、35、28、141、160、136、69、13、118、104
 
