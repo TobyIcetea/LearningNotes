@@ -1082,6 +1082,256 @@ func main() {
 
 总结：goroutine 是 Go 语言并发编程的核心，结合 Channel，可以实现高效、简洁的并发模型。它们不仅轻量级，而且具备自动调度、栈空间可扩展等特性，是编写并发程序的得力工具。
 
+## 10. 字符串
+
+
+
+## 11. defer语句
+
+在 Go 语言中，`defer` 关键字用于延迟函数的执行，直到外层函数返回后再执行。这个特性在资源管理、清理工作等场景中非常有用，确保特定代码在函数完成时运行，无论函数是正常退出还是因为错误退出。
+
+### 11.1 基本用法
+
+`defer` 语句会将后面的函数或表达式推迟到外层函数的末尾执行。其基本语法如下：
+
+```go
+defer funcName(args)
+```
+
+当 `defer` 被调用时，后面的函数不会立即执行，而是在外层函数返回时才执行。一个简单的例子是资源释放，比如关闭文件：
+
+```go
+package main
+
+import (
+	"fmt"
+    "os"
+)
+
+func main() {
+    file, err := os.Open("example.txt")
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    defer file.Close()
+    // 在函数结束时，file 会被自动关闭
+}
+```
+
+在这个例子中，即使在函数内出现了错误，文件句柄在函数退出时也会被关闭，避免资源泄露。
+
+### 11.2 多个 defer 语句
+
+如果在一个函数中使用了多个 `defer`，他们会按照「后进先出」的顺序执行。可以理解为站结构，最后一个 `defer` 会最先执行：
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    defer fmt.Println("First")
+    defer fmt.Println("Second")
+    defer fmt.Println("Third")
+}
+```
+
+输出结果将会是：
+
+```markdown
+Third
+Second
+First
+```
+
+### 11.3 函数参数的计算时机
+
+`defer` 的参数会在声明时被立即计算，而不是真正执行 `defer` 时。例如：
+
+```go
+package main
+
+import "fmt"
+
+func main(){
+    x := 5
+    defer fmt.Println(x)  // 此时 x 的值为 5
+    x = 10
+}
+```
+
+输出结果是 `5`，而不是 `10`。这是因为 `defer` 语句在声明时就计算了参数值，而不是在执行时才计算。
+
+### 11.4 defer 在错误处理中的应用
+
+Go 语言没有异常处理机制，常用 `defer` 与 `recover` 搭配处理错误。`recover` 用于捕获 `panic`，从而避免程序崩溃。示例如下：
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Println("Recoverd from:", r)
+        }
+    }()
+    panic("something went wrong")
+}
+```
+
+输出结果是：
+
+```markdown
+Recoverd from: something went wrong
+```
+
+### 11.5 defer 的性能考虑
+
+`defer` 的性能在 Go 1.14 版本之前较慢，因为每次调用 `defer` 都需要额外的开销。然而，Go 1.14 优化了 `defer` 的实现，较少了开销。因此，在新版本中，`defer` 的性能基本不是问题，可以更放心地使用。
+
+总结一下，`defer` 是 Go 语言中非常强大和方便的特性，特别适合用于清理资源、处理错误等需要在函数退出时运行的场景。在使用 `defer` 时，需要注意参数计算时机和多个 `defer` 的执行顺序。
+
+### 11.6 panic 和 recover
+
+在 Go 语言中，`panic` 和 `recover` 是处理异常的机制。虽然 Go 没有像其他语言那样的异常捕获机制（如 `try-catch`），但通过 `panic` 和 `recover` 可以实现类似的效果，尤其适合用于程序崩溃和错误处理。
+
+**【`panic` 函数】**
+
+`panic` 用于让函数立即崩溃。它可以接收一个参数（通常是字符串或错误类型），并在调用后停止当前函数的执行，同时逐层回退栈中的函数，直到遇到 `recover()`，或者直接崩溃。`panic` 常见的用途有：
+
+- 遇到不可恢复的错误，如文件无法打开，连接失败等。
+- 编写库代码时，用于通知调用方发生了严重错误。
+
+示例代码：
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Start")
+    panic("Something went wrong!")
+    fmt.Println("End")  // 不会执行
+}
+```
+
+当执行 `panic` 后，后续代码将不再运行，而是退出当前函数，并逐层回退。上例中的输出是：
+
+```markdown
+Start
+panic: Something went wrong!
+```
+
+**【`recover` 函数】**
+
+`recover` 是 Go 中的内建函数，它用于从 `panic` 状态中恢复，让程序继续执行。`recover` 必须在 `defer` 中调用，因为只有在 `defer` 延迟执行的函数中，`recover` 才能捕获到 `panic`。
+
+`recover` 的返回值是传递给 `panic` 的信息（通常是字符串或错误），如果函数中没有发生 `panic`，则返回 `nil`。通过 `recover`，可以在适当的地方捕获错误，防止程序崩溃。
+
+示例代码：
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Println("Recoverd from panic:", r)
+        }
+    }()
+    
+    fmt.Println("Start")
+    panic("Something went wrong!")
+    fmt.Println("End")  // 不会执行
+}
+```
+
+输出结果是：
+
+```markdown
+Start
+Recoverd from panic: Something went wrong!
+```
+
+在这里，`recover` 捕获到了 `panic` 传递的信息，程序没有崩溃，而是恢复过来继续执行了。需要注意的是，`recover` 必须放在 `defer` 中才有效，否则无法捕获到 `panic`。
+
+**【`panic` 和 `recover` 的典型用法】**
+
+`panic` 和 `recover` 主要用于恢复不可恢复的错误或者必须立即停止程序执行的情况。大多数情况下，推荐返回错误值（如 `error`）进行错误处理。只有在那些非常严重或预料不到的错误发生时，才使用 `panic`。
+
+示例：自定义错误处理
+
+有时我们可以编写一个高层函数来捕获整个程序中的 `panic`，如在服务器程序中这样应用：
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    safeFunction()
+    fmt.Println("Main function continues running!")
+}
+
+func safeFunction() {
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Println("Recover from panic:", r)
+        }
+    }()
+    
+    riskyFunction()
+}
+
+func riskyFunction() {
+    fmt.Println("About to panic!")
+    panic("Unexpected error!")
+    fmt.Println("Theis line will not execute.")
+}
+```
+
+输出为：
+
+```markdown
+About to panic!
+Recover from panic: Unexpected error!
+Main function continues running!
+```
+
+在这个例子中，`safeFunction` 包裹了 `riskyFunction` 的调用，保证即使出现了 `panic`，程序也不会崩溃，而是能优雅地恢复并继续执行。
+
+**【总结】**
+
+- `panic` 用于不可恢复的错误，会停止当前函数并逐层回退。
+- `recover` 用于在 `defer` 中捕获 `panic`，从而防止程序崩溃。
+- `panic` 和 `recover` 应该谨慎使用。一般情况下，Go 中推荐使用返回错误值的方式来处理错误。`panic` 和 `recover` 适合在程序关键部分的错误处理，如服务器崩溃、资源清理等。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
