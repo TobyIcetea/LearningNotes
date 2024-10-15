@@ -1084,6 +1084,428 @@ func main() {
 
 ## 10. 字符串
 
+Go 语言中的字符串（`string`）是一个非常重要且常用的数据类型。理解字符串的特定、操作和常见用法对于编写高效、可靠的 Go 程序至关重要。
+
+### 10.1 字符串基本概念
+
+**【字符串的定义】**
+
+在 Go 语言中，字符串是一个不可变的字节序列。这意味着一旦字符串被创建，其内容不能被修改。字符串可以包含任意的数据，但通常用于表示文本，即 Unicode 字符序列。
+
+```go
+var s string = "Hello, 世界"
+```
+
+**【字符串的底层实现】**
+
+Go 语言的字符串实际上是一个结构体，包含以下两个字段：
+
+- 指向字节数组的指针：指向实际存储字符串内容的内存地址。
+- 字符串的长度：字符串所占的字节数。
+
+由于字符串是不可变的，对字符串的任何操作都会创建新的字符串，而不会修改原有的字符串。
+
+### 10.2 字符串的表示方式
+
+**【字符串字面量】**
+
+Go 语言中的字符串字面量可以通过以下两种方式表示：
+
+- 双信号字符串（解释字符串）：使用双引号 `""` 包裹的的字符串，支持转义字符。
+
+    ```go
+    s := "Hello\nWorld"
+    ```
+
+- 反引号字符串（原始字符串）：使用反引号 ` `` ` 包裹的字符串，支持多行，不支持转义字符。
+
+    ```go
+    s := `Hello
+    World`
+    ```
+
+**【字符表示】**
+
+Go 语言中没有专门的字符类型，但有一个别名类型 `rune`，表示 Unicode 码点，实际上是 `int32` 别名。使用单引号 `''` 表示字符。
+
+```go
+var ch rune = '中'
+```
+
+需要注意的是，`rune` 占用 4 个字节，能够表示所有的 Unicode 字符。
+
+### 10.3 字符串的编码
+
+**【UTF-8 编码】**
+
+Go 语言的字符串采用 UTF-8 编码方式存储，这是一种兼容 ASCII 的多字节编码方案，能够表示所有的 Unicode 字符。
+
+**【字符串的长度】**
+
+- 字节长度：使用内置函数 `len(s)`，返回字符串所占的字节数。
+
+    ```go
+    s := "Hello, 世界"
+    fmt.Println(len(s))  // 输出 13，因为「世界」每个汉字占 3 个字节
+    ```
+
+- 字符长度：需要将字符串转换为 `[]rune`，然后再获取长度。
+
+    ```go
+    fmt.Println(len([]rune(s)))  // 输出 9，正确的字符数量
+    ```
+
+### 10.4 字符串的操作
+
+**【索引和切片】**
+
+- 索引：可以通过索引获取字符串中的字节，但不能修改。
+
+    ```go
+    s := "Hello"
+    fmt.Println(s[0])  // 输出 72，对应字符 'H' 的 ASCII 码
+    fmt.Println("%c\n", s[0])  // 输出字符 'H'
+    ```
+
+- 切片：可以对字符串进行切片操作，得到子字符串。
+
+    ```go
+    runes := []rune(s)
+    sub := string(runes[7:])
+    fmt.Println(sub)  // 正确输出：世界
+    ```
+
+    注意：由于中文字符占多个字节，直接对字符串切片可能会导致乱码。解决方法是将字符串转换为 `[]rune`。
+
+**【字符串拼接】**
+
+- 使用加号 `+` 进行字符串拼接。
+
+    ```go
+    s1 := "Hello"
+    s2 := "World"
+    s := s1 + ", " + s2 + "!"
+    ```
+
+- 使用 `fmt.Sprintf` 格式化字符串。
+
+    ```go
+    s := fmt.Sprintf("%s, %s!", s1, s2)
+    ```
+
+- 使用 `strings.Join()` 函数拼接字符串切片。
+
+    ```go
+    s := strings.Join([]string{s1, s2}, ",")
+    ```
+
+**【字符串比较】**
+
+- 直接使用 `==` 和 `!=` 比较字符串内容。
+
+    ```go
+    if s1 == s2 {
+        fmt.Println("字符串相等")
+    }
+    ```
+
+- 使用 `strings.Compare` 函数。
+
+    ```go
+    result := strings.Compare(s1, s2)
+    ```
+
+**【字符串查找】**
+
+- 使用 `strings.Contains` 判断是否包含子串。
+
+    ```go
+    if strings.Contains(s, "World") {
+        fmt.Println("包含子串")
+    }
+    ```
+
+- 使用 `strings.Index` 获取子串的位置。
+
+    ```go
+    index := strings.Index(s, "World")
+    ```
+
+- 使用正则表达式匹配字符串（需要导入 `regexp` 包）。
+
+    ```go
+    matched, _ := regexp.MatchString("Wor(ld)", s)
+    ```
+
+**【字符串替换】**
+
+- 使用 `strings.Replace` 或 `strings.ReplaceAll` 进行字符串替换。
+
+    ```go
+    newStr := strings.Replace(s, "World", "Go", 1)
+    ```
+
+**【字符串分割】**
+
+- 使用 `strings.Split` 将字符串按照指定分隔符分割为切片。
+
+    ```go
+    parts := strings.Split(s, ", ")
+    ```
+
+**【大小写转换】**
+
+- 将字符串转换为大写或小写。
+
+    ```go
+    upper := strings.ToUpper(s)
+    lower := strings.ToLower(s)
+    ```
+
+### 10.5 字符串与其他类型的转换
+
+**【字符串与字节切片】**
+
+- 字符串转字节切片
+
+    ```go
+    s := "Hello, 世界"
+    b := []byte(s)
+    ```
+
+- 字节切片转字符串
+
+    ```go
+    b := []byte{72, 101, 108, 108, 111}
+    s := string(b)
+    ```
+
+**【字符串与 `[]rune`】**
+
+- 字符串转 `[]rune`
+
+    ```go
+    s := "Hello, 世界"
+    runes := []rune(s)
+    ```
+
+- `[]rune` 转字符串
+
+    ```go
+    s = string(runes)
+    ```
+
+**【字符串与数字类型】**
+
+- 字符串转整数
+
+    ```go
+    s := "123"
+    num, err := strconv.Atoi(s)
+    if err != nil {
+        // 处理错误
+    }
+    ```
+
+- 整数转字符串
+
+    ```go
+    num := 123
+    s := strconv.Itoa(num)
+    ```
+
+- 字符串转浮点数
+
+    ```go
+    s := "123.456"
+    f, err := strconv.ParseFloat(s, 64)
+    if err != nil {
+        // 处理错误
+    }
+    ```
+
+- 浮点数转字符串
+
+    ```go
+    f := 123.456
+    s := strconv.FormatFloat(f, 'f', 2, 64)  // 保留两位小数
+    ```
+
+### 10.6 字符串的遍历
+
+**【按字节遍历】**
+
+- 直接使用索引遍历字符串，获取的是每个字节的值。
+
+    ```go
+    s := "Hello, 世界"
+    for i := 0; i < len(s); i++ {
+        fmt.Println("%x ", s[i])
+    }
+    ```
+
+**【按字符遍历】**
+
+- 使用 `for range` 遍历字符串，能够正确处理多字节字符。
+
+    ```go
+    s := "Hello, 世界"
+    for index, ch := range s {
+        fmt.Printf("索引：%d，字符：%c\n", index, ch)
+    }
+    ```
+
+### 10.7 字符串的常用函数
+
+Go 标准库的 `strings` 包提供了丰富的字符串处理函数：
+
+- `strings.TrimSpace`：去除字符串首尾的空白字符。
+
+    ```go
+    s := strings.TrimSpace("  Hello, World!  ")
+    ```
+
+- `strings.HasPrefix / strings.HasSuffix`：判断字符串是否以制定前缀或后缀开头或结尾。
+
+    ```go
+    if strings.HasPrefix(s, "Hello") {
+        fmt.Println("以 Hello 开头")
+    }
+    ```
+
+- `strings.Count`：统计子串在字符串中出现的次数。
+
+    ```go
+    count := strings.Count(s, "l")
+    ```
+
+- `strings.Repeat`：重复字符串。
+
+    ```go
+    s := strings.Repeat("Go", 3)  // "GoGoGo"
+    ```
+
+- `strings.Title`：将字符串的每个单词首字符大写。
+
+    ```go
+    s := strings.Title("hello world")  // "Hello World"
+    ```
+
+### 10.8 字符串的性能优化
+
+**【使用 `strings.Builder`】**
+
+- `strings.Builder` 是 Go 1.10 引入的，用于高效地构建字符串，避免频繁的内存分配。
+
+    ```go
+    var builder strings.Builder
+    builder.WriteString("Hello")
+    builder.WriteString(", ")
+    builder.WriteString("World")
+    s := builder.String()
+    ```
+
+**【使用字节缓冲区 `bytes.Buffer`】**
+
+- 另一种方式是使用 `bytes.Buffer`。
+
+    ```go
+    var buffer bytes.Buffer
+    buffer.WriteString("Hello")
+    buffer.WriteString(", ")
+    buffer.WriteString("World")
+    s := buffer.String()
+    ```
+
+**【预分配内存】**
+
+- 如果可以预估字符串的最终长度，使用 `strings.Builder.Grow` 方法预分配内存。
+
+    ```go
+    var builder strings.Builder
+    builder.Grow(100)  // 预分配 100 字节
+    ```
+
+### 10.9 常见问题和注意事项
+
+**【字符串的不可变性】**
+
+- 字符串是不可变的，无法修改字符串中的某个字符。
+
+    ```go
+    s := "Hello"
+    // s[0] = 'h'  // 错误：cannot assign to s[0]
+    ```
+
+- 如果需要修改字符串，可以将其转换为 `[]byte` 或 `[]rune`，进行修改后再转换回字符串。
+
+    ```go
+    b := []byte(s)
+    b[0] = 'h'
+    s = string(b)
+    ```
+
+**【字符串切片的风险】**
+
+- 直接对字符串进行切片可能会导致乱码，尤其是包含多字节字符的情况下。
+
+    ```go
+    s := "Hello, 世界"
+    sub := s[:8]  // 可能会截断汉字
+    ```
+
+- 解决方法：将字符串转换为 `[]rune` 后再进行切片。
+
+    ```go
+    runes := []rune(s)
+    sub := strings(runes[:8])
+    ```
+
+**【字符串比较的效率】**
+
+- 直接使用 `==` 比较字符串，在长度不同时效率非常高，因为 Go 会先比较长度。
+
+**【字符串拼接的性能问题】**
+
+- 频繁的字符串拼接会导致性能下降，因为每次拼接都会创建新的字符串对象。
+- 解决方法：使用 `strings.Builder` 或 `bytes.Buffer`。
+
+### 10.10 总结
+
+Go 语言中的字符串是功能强大且灵活的数据类型。理解其不变性、编码方式以及与其他类型的转换，对编写高效、可靠的 Go 程序非常重要。合理使用标准库提供的字符串处理函数和工具，可以大大提高开发效率，避免常见的陷阱和错误。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## 11. defer语句

@@ -155,7 +155,7 @@ node节点：   node2
     
     # 执行脚本文件
     /bin/bash /etc/sysconfig/modules/ipvs.modules
-    W
+    
     # 查看对应的模块是否加载成功
     lsmod | grep -e ip_vs -e nf_conntrack_ipv4
     ```
@@ -476,7 +476,7 @@ systemctl enable kubelet
 
 ## 5. 集群初始化
 
-**下面的操作只需要在 master 上面完成就可以！**
+==**下面的操作只需要在 master 上面完成就可以！**==
 
 ```bash
 # 首先查看 kubeadm 的版本
@@ -528,7 +528,7 @@ kubernetesVersion: 1.28.2  # kubeadm的版本为多少这里就修改为多少
 networking:
   dnsDomain: cluster.local
   serviceSubnet: 10.96.0.0/12
-  podSubnet: 10.244.0.0/16   ## 设置pod网段
+  podSubnet: 10.244.0.0/16   # 设置pod网段
 scheduler: {}
 
 ###添加内容：配置kubelet的CGroup为systemd
@@ -545,7 +545,10 @@ cgroupDriver: systemd
 # 下载镜像
 kubeadm config images pull --image-repository=registry.aliyuncs.com/google_containers  --kubernetes-version=v1.28.2
 
-# 集群初始化
+### 这里不知道为啥还需要重新执行这个：加载网桥过滤模块
+modprobe br_netfilter
+
+# 集群初始化modprobe br_netfilter
 kubeadm init --config kubeadm.yaml
 
 # 初始化完成之后，就根据提示对 master 和 node 做对应的操作就行
@@ -569,6 +572,8 @@ node2    NotReady   <none>          12s     v1.28.2
 ## 6. 安装网络插件
 
 kubernetes支持多种网络插件，比如flannel、calico、canal等等，任选一种使用即可，本次选择flannel。
+
+==**下面的操作都只需要在 master 上面执行！**==
 
 ```bash
 # 要想执行成功，还要做一个操作（但是现在还不知道原理）
