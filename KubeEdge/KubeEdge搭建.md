@@ -70,7 +70,7 @@ keadm gettoken
 例如这里我自己获取到的 token 是：
 
 ```
-b9f0a7627c6915c227c7e7147562a2a71c065dd7bc86d3c812caf937adace530.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjkwNjQ0NTJ9.BaqGSie2WcZlZTkAUKjvqclor_s4fB-hCUewZvdRKfU
+4c86125c6fe4b4cdc1d0b7a866474613e2658114cc4c34aba79e9edecfa7ab37.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjkxMzgzNzh9.c7l_gX_r_s2TufFEX67N9VNN7JmCCdcopQtsbAKjR88
 ```
 
 上面都没有报错的话，就说明云端节点部分已经安装完毕。
