@@ -58,7 +58,7 @@ wget https://github.com/kubeedge/kubeedge/releases/download/v1.18.1/kubeedge-v1.
 接下来执行部署命令（其中的 `advertise-address` 是自己 master 节点的 ip）：
 
 ```bash
-keadm init --advertise-address=192.168.100.140 --kube-config=$HOME/.kube/config --kubeedge-version=v1.18.1
+keadm init --advertise-address=192.168.100.140 --kubeedge-version=v1.18.1
 ```
 
 边缘节点加入云端节点需要通过 token 认证方式，使用如下命令获取边缘节点加入集群的 token：
@@ -70,12 +70,20 @@ keadm gettoken
 例如这里我自己获取到的 token 是：
 
 ```
-4c86125c6fe4b4cdc1d0b7a866474613e2658114cc4c34aba79e9edecfa7ab37.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjkxMzgzNzh9.c7l_gX_r_s2TufFEX67N9VNN7JmCCdcopQtsbAKjR88
+828eb91bb309b3a32dbb6622b13842653f4f5c71656eea81248cf970f2d33844.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjkxNTYyOTJ9.dNnBueSgxgM9TlWbOmqHm9fO6YZ-5webgNHaOzreki0
 ```
 
-上面都没有报错的话，就说明云端节点部分已经安装完毕。
+
 
 ### 设置边缘端（KubeEdge 工作节点）
+
+先在边缘端下载 containerd。
+
+
+
+
+
+
 
 边缘节点也要先下载 keadm，并解压：
 
@@ -94,11 +102,14 @@ wget https://github.com/kubeedge/kubeedge/releases/download/v1.18.1/keadm-v1.18.
 接下来使用如下命令加入集群（其中 `cloudcore-ipport` 要设置成自己的 ip，端口就设置成 10000 就行。token 用上面命令生成的 token）：
 
 ```bash
-keadm join --cloudcore-ipport=192.168.100.140:10000 \
+TOKEN=4c86125c6fe4b4cdc1d0b7a866474613e2658114cc4c34aba79e9edecfa7ab37.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjkxNTE5ODV9.Cdgqx5B15M_vU-BSg00sHoJdD-5uUSDQ7y_z2a6V-3w
+SERVER=192.168.100.140:10000
+
+keadm join --cloudcore-ipport=$SERVER \
 	--kubeedge-version=v1.18.1 \
 	--cgroupdriver=systemd \
 	--remote-runtime-endpoint=unix:///run/containerd/containerd.sock \
-	--token=b9f0a7627c6915c227c7e7147562a2a71c065dd7bc86d3c812caf937adace530.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjkwNjQ0NTJ9.BaqGSie2WcZlZTkAUKjvqclor_s4fB-hCUewZvdRKfU
+	--token=$TOKEN
 ```
 
 之后看到类似 `KubeEdge edgecore is running` 之类的话，就说明边缘端也跑起来了。

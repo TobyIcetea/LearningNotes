@@ -333,7 +333,415 @@ fmt.Printf("|%010.2f|\n", n) // 输出：|0000123.46|
 
 ## 2. os
 
+Go 语言的 `os` 包提供了跨平台的操作系统功能接口，涵盖了文件的目录操作、进程管理、环境变量处理等方面的功能。
 
+### 2.1 文件操作
+
+**（1）打开和创建文件**
+
+`os.Open(name string) (*os.File, error)`
+
+以只读方式打开指定名称的文件，如果成功，返回一个 `*os.File` 指针。
+
+```go
+file, err := os.Open("example.txt")
+if err != nil {
+    log.Fatal(err)
+}
+defer file.Close()
+```
+
+`os.Create(name string) (*os.File, error)`
+
+创建一个名为 `name` 的文件，如果文件已存在则清空该文件，返回一个 `*os.File` 指针。
+
+```go
+file, err := os.Create("example.txt")
+if err != nil {
+    log.Fatal(err)
+}
+defer file.Close()
+```
+
+**（2）读取和写入文件**
+
+`(*File) Read(b []byte) (n int, err error)`
+
+从文件中读取数据到 `b`，返回读取的字节数和可能的错误。
+
+```go
+data := make([]byte, 100)
+n, err := file.Read(data)
+if err != nil && err != io.EOF {
+    log.Fatal(err)
+}
+fmt.Printf("读取了 %d 字节：%s\n", n, string(data[:n]))
+```
+
+`*File Write(b []byte) (n int, err error)`
+
+将 `b` 中的数据写入文件，返回写入的字节数和可能的错误。
+
+```go
+content := []byte("Hello, World")
+n, err := file.Write(content)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("写入了 %d 字节\n", n)
+```
+
+**（3）关闭文件**
+
+`(*File) Close() error`
+
+关闭文件，释放资源。
+
+```go
+err := file.Close()
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（4）删除文件**
+
+`os.Remove(name string) error`
+
+删除指定的文件或目录。
+
+```go
+err := os.Remove("example.txt")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### 2.2 目录操作
+
+**（1）创建目录**
+
+`os.Mkdir(name string, perm FileMode) error`
+
+创建一个名为 `name` 的目录，`perm` 指定权限。
+
+```go
+err := os.Mkdir("testdir", 0755)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+`os.MkdirAll(path string, perm FileMode) error`
+
+递归创建多级目录。
+
+```go
+err := os.Mkdir("testdir/subdir", 0755)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（2）删除目录**
+
+`os.RemoveAll(path string) error`
+
+递归删除指定目录及其包含的所有文件和子目录。
+
+```go
+err := os.RemoveAll("testdir")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（3）改变当前工作目录**
+
+`os.Chdir(dir string) error`
+
+```go
+err := os.Chdir("/path/to/dir")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（4）获取当前工作目录**
+
+`os.Getwd() (dir string, err)`
+
+返回当前工作目录的路径。
+
+```go
+dir, err := os.Getwd()
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println("当前工作目录：", dir)
+```
+
+### 2.3 文件信息
+
+**（1）获取文件或目录信息**
+
+`os.Stat(name string) (FileInfo, error)`
+
+返回 `FileInfo` 接口，包含文件或目录的详细信息。
+
+```go
+info, err := os.Stat("example.txt")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println("文件大小：", info.Size())
+fmt.Println("修改时间：", info.ModTime())
+fmt.Println("是否是目录：", info.IsDir())
+```
+
+**（2）`FileInfo` 接口**
+
+`FileInfo` 接口提供以下方法：
+
+- `Name() string`：返回文件名
+- `Size() int64`：返回文件大小
+- `Mode() FileMode`：返回文件权限和模式
+- `ModTime() time.Time`：返回修改时间
+- `IsDir bool`：判断是否为目录
+
+### 2.4 环境变量
+
+**（1）获取环境变量**
+
+`os.Getenv(key string) string`
+
+返回环境变量 `key` 的值，如果不存在则返回空字符串。
+
+```go
+path := os.Getenv("PATH")
+fmt.Println("PATH:", path)
+```
+
+**（2）设置环境变量**
+
+`os.Setenv(key, value string) error`
+
+设置环境变量 `key` 的值为 `value`。
+
+```go
+err := os.Setenv("MY_VAR", "my_value")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（3）删除环境变量**
+
+`os.Unsetenv(key string) error`
+
+删除环境变量 `key`。
+
+```go
+err := os.Unsetenv("MY_VAR")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（4）获取所有环境变量**
+
+`os.Environ() []string`
+
+```go
+for _, err := range os.Environ() {
+    fmt.Println(env)
+}
+```
+
+### 2.5 进程管理
+
+**（1）获取进程 ID**
+
+`os.Getpid() int`
+
+返回当前进程的 ID。
+
+```go
+pid := os.Getpid()
+fmt.Println("当前进程 ID：", pid)
+```
+
+**（2）获取父进程 ID**
+
+`os.Getppid() int`
+
+```go
+ppid := os.Getppid()
+fmt.Println("父进程 ID：", ppid)
+```
+
+**（3）退出程序**
+
+`os.Exit(code int)`
+
+以指定的状态码退出程序。
+
+```go
+if err != nil {
+    fmt.Println("发生错误，程序退出")
+    os.Exit(1)
+}
+```
+
+### 2.6 错误处理
+
+`os` 包定义了一些标准错误，方便与 `error` 进行比较。
+
+- `os.ErrNotExist`：文件或目录不存在
+- `os.ErrExist`：文件或目录已存在
+- `os.ErrPermisson`：权限不足
+
+```go
+_, err := os.Open("nonexistent.txt")
+if errors.Is(err, os,ErrNotExist) {
+    fmt.Println("文件不存在")
+}
+```
+
+### 2.7 文件权限
+
+**（1）更改文件权限**
+
+`os.Chmod(name string, mode FileMode) error`
+
+更改指定文件的权限。
+
+```go
+err := os.Chmod("example.txt", 0644)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（2）更改文件所有者**
+
+`os.Chown(name string, uid, git int) error`
+
+更改指定文件的所有者和组（在 Unix 系统上有效）。
+
+```go
+err := os.Chown("example.txt", uid, gid)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### 2.8 符号链接
+
+**（1）创建符号链接**
+
+`os.Symlink(oldname, newname string) err`
+
+创建指向 `oldname` 的符号链接 `newname`。
+
+```go
+err := os.Symlink("target.txt", "link.txt")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（2）读取符号链接**
+
+`os.Readlink(name string) (string, error)`
+
+返回符号链接指向的目标路径。
+
+```go
+target, err := os.Readlink("link,txt")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println("符号链接指向：", target)
+```
+
+### 2.9 临时文件和目录
+
+**（1）创建临时文件**
+
+`os.CreateTemp(dir, pattern string) (*os.File, error)`
+
+在指定目录 `dir` 中创建一个临时文件，文件名以 `pattern` 为前缀。
+
+```go
+file, err := os.CreateTemp("", "tempfile_*.txt")
+if err != nil {
+    log.Fatal(err)
+}
+defer os.Remove(file.Name())  // 程序结束时删除临时文件
+```
+
+**（2）创建临时目录**
+
+`os.MkdirTemp(dir, pattern string) (string, error)`
+
+在指定目录 `dir` 中创建一个临时目录，目录名以 `pattern` 为前缀。
+
+```go
+dir, err := os.MkdirTemp("", "tempdir_")
+if err != nil {
+    log.Fatal(err)
+}
+defer os.RemoveAll(dir)  // 程序结束时删除临时目录
+```
+
+### 2.10 其他常用函数
+
+**（1）重命名文件或目录**
+
+`os.Rename(oldpath, newpath string) error`
+
+将 `oldpath` 重命名为 `newpath`。
+
+```go
+err := os.Rename("oldname.txt", "newname.txt")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（2）截断文件**
+
+`os.Truncate(name string, size int64) error`
+
+将指定文件截断到 `size` 大小。
+
+```go
+err := os.Truncate("example.txt", 100)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**（3）读取目录内容**
+
+`os.ReadDir(name string) ([]os.DirEntry, error)`
+
+返回指定目录中的所有目录项。
+
+```go
+entries, err := os.ReadDir(".")
+if err != nil {
+    log.Fatal(err)
+}
+for _, entry := range entries {
+    fmt.Println(entry.Name())
+}
+```
+
+### 2.11 总结
+
+`os` 包是 Go 语言标准库中非常重要的一个包，提供了丰富的操作系统功能接口。熟练掌握 `os` 包的常用方法，可以大大提高文件和目录操作、环境变量处理、进程管理等方面的编程效率。在实际使用中，要注意不同操作系统之间的差异，确保代码的可移植性。
 
 ## 3. encoding/json
 
@@ -352,6 +760,8 @@ fmt.Printf("|%010.2f|\n", n) // 输出：|0000123.46|
 ## 8. io
 
 ## 9. regexp
+
+## 10. log
 
 
 
