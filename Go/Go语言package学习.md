@@ -743,7 +743,365 @@ for _, entry := range entries {
 
 `os` 包是 Go 语言标准库中非常重要的一个包，提供了丰富的操作系统功能接口。熟练掌握 `os` 包的常用方法，可以大大提高文件和目录操作、环境变量处理、进程管理等方面的编程效率。在实际使用中，要注意不同操作系统之间的差异，确保代码的可移植性。
 
-## 3. encoding/json
+## 3. encoding
+
+Go 语言的标准库中，`encoding` 包及其子包提供了丰富的编码和解码功能，用于处理各种数据格式的序列化和反序列化。
+
+### 3.1 `encoding` 包概述
+
+`encoding` 包本身主要定义了一些通用的接口，这些接口为各种数据格式的编码和解码提供了统一的标准。主要的接口包括：
+
+- `BinaryMarshaler` 和 `BinaryUnmarshaler`：用于二进制数据的编码和解码。
+- `TextMarshaler` 和 `TextUnmarshaler`：用于文本数据的编码和解码。
+
+```go
+type BinaryMarshaler interface {
+    MarshalBinary() (data []byte, err error)
+}
+
+type BinaryMarshaler interface {
+    UnMarshalerBinary(data []byte) error
+}
+
+type TextMarshaler interface {
+    MarshalText() (text []byte, err error)
+}
+
+type TextUnmarshaler interface {
+    UnmarshalerText(text []byte) error
+}
+```
+
+这些接口允许自定义类型实现特定的编码和解码方法，从而与标准库的编码器和解码器协同工作。
+
+### 3.2 `encoding` 包的主要子包
+
+**（1）`encoding/json`**
+
+用于处理 JSON 格式的数据。提供了 `Marshal` 和 `Unmarshal` 函数，将 Go 数据结构与 JSON 格式相互转换。
+
+示例：
+
+```go
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type User struct {
+    Name string `json:name`
+    Age int `json:"age"`
+}
+
+func main() {
+    user := User{Name: "张三", Age: 30}
+    data, err := json.Marshal(user)
+    if err != nil {
+        fmt.Println("编码错误：", err)
+        return
+    }
+    fmt.Println("JSON格式：", string(data))
+    
+    var decodeUser User
+    err = json.Unmarshal(data, &decodeUser)
+    if err != nil {
+        fmt.Println("解码错误：", err)
+        return
+    }
+    fmt.Println("解码后：", decodeUser)
+}
+```
+
+执行结果：
+
+```
+JSON格式： {"Name":"张三","age":30}
+解码后： {张三 30}
+```
+
+**（2）`encoding/xml`**
+
+用于处理 XML 格式的数据。类似于 `encoding/json`，提供了 `Marshal` 和 `UnMarshal` 函数。
+
+示例：
+
+```go
+import (
+	"encoding/xml"
+	"fmt"
+)
+
+type User struct {
+	XMLName xml.Name `xml:"user"`
+	Name    string   `xml:"name"`
+	Age     int      `xml:"age"`
+}
+
+func main() {
+	user := User{Name: "李四", Age: 25}
+	data, err := xml.Marshal(user)
+	if err != nil {
+		fmt.Println("编码错误：", err)
+		return
+	}
+	fmt.Println("XML 格式：", string(data))
+
+	var decodeUser User
+	err = xml.Unmarshal(data, &decodeUser)
+	if err != nil {
+		fmt.Println("编码错误：", err)
+		return
+	}
+	fmt.Println("解码后：", decodeUser)
+}
+```
+
+执行结果：
+
+```
+XML 格式： <user><name>李四</name><age>25</age></user>
+解码后： {{ user} 李四 25}
+```
+
+**（3） `encoding/gob`**
+
+Go 特有的二进制序列化格式，适用于在 Go 应用程序之间传递数据。
+
+```go
+import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+)
+
+type User struct {
+	Name string
+	Age  int
+}
+
+func main() {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	decoder := gob.NewDecoder(&buffer)
+
+	user := User{Name: "王五", Age: 28}
+	err := encoder.Encode(user)
+	if err != nil {
+		fmt.Println("编码错误：", err)
+		return
+	}
+
+	var decodeUser User
+	err = decoder.Decode(&decodeUser)
+	if err != nil {
+		fmt.Println("解码错误：", err)
+		return
+	}
+	fmt.Println("解码后：", decodeUser)
+}
+```
+
+执行结果：
+
+```
+解码后： {王五 28}
+```
+
+**（4）`encoding/binary`**
+
+提供了在字节序列与基础数据类型之间转换的功能，支持大端和小端字节序。
+
+```go
+import (
+	"encoding/binary"
+	"fmt"
+)
+
+func main() {
+	data := make([]byte, 4)
+	binary.BigEndian.PutUint32(data, 1024)
+	fmt.Println("大端字节序：", data)
+
+	value := binary.BigEndian.Uint32(data)
+	fmt.Println("转换回整数:", value)
+}
+```
+
+执行结果：
+
+```
+大端字节序： [0 0 4 0]
+转换回整数: 1024
+```
+
+**（5）`encoding/csv`**
+
+用于读取和写入 CSV（逗号分隔值）格式的文件。
+
+示例：
+
+```go
+import (
+	"encoding/csv"
+	"fmt"
+	"strings"
+)
+
+func main() {
+	reader := csv.NewReader(strings.NewReader("name,age\n赵六,22\n钱7,24"))
+	records, err := reader.ReadAll()
+	if err != nil {
+		fmt.Println("读取错误：", err)
+		return
+	}
+	fmt.Println("CSV 内容：", records)
+}
+```
+
+执行结果：
+
+```
+CSV 内容： [[name age] [赵六 22] [钱7 24]]
+```
+
+**（6）`encoding/base64`**
+
+用于 Base64 编码和解码，常用于在文本环境中传输二进制数据。
+
+示例：
+
+```go
+import (
+	"encoding/base64"
+	"fmt"
+)
+
+func main() {
+	data := "Hello，世界"
+	encoded := base64.StdEncoding.EncodeToString([]byte(data))
+	fmt.Println("Base64 编码：", encoded)
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		fmt.Println("编码错误：", err)
+		return
+	}
+	fmt.Println("解码后：", string(decoded))
+}
+```
+
+执行结果：
+
+```
+Base64 编码： SGVsbG/vvIzkuJbnlYw=
+解码后： Hello，世界
+```
+
+**（7）`encoding/hex`**
+
+提供了十六进制的编码和解码功能。
+
+示例：
+
+```go
+import (
+	"encoding/hex"
+	"fmt"
+)
+
+func main() {
+	data := "Go 语言"
+	encoded := hex.EncodeToString([]byte(data))
+	fmt.Println("十六进制编码：", encoded)
+
+	decoded, err := hex.DecodeString(encoded)
+	if err != nil {
+		fmt.Println("解码错误，", err)
+		return
+	}
+	fmt.Println("解码后：", string(decoded))
+}
+```
+
+执行结果：
+
+```
+十六进制编码： 476f20e8afade8a880
+解码后： Go 语言
+```
+
+### 3.3 实现自定义编码和解码
+
+通过实现 `encoding` 包定义的接口，可以自定义类型的编码和解码行为。
+
+示例：
+
+```go
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+type User struct {
+	Name string
+	Age  int
+}
+
+// MarshalText 实现 TextMarshaller 接口
+func (u *User) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("%s:%d", u.Name, u.Age)), nil
+}
+
+// UnmarshalText 实现 TextUnmarshaler 接口
+func (u *User) UnmarshalText(data []byte) error {
+	parts := strings.Split(string(data), ":")
+	if len(parts) != 2 {
+		return fmt.Errorf("无效的数据格式")
+	}
+	u.Name = parts[0]
+	age, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return err
+	}
+	u.Age = age
+	return nil
+}
+
+func main() {
+	user := User{Name: "孙八", Age: 26}
+	data, _ := user.MarshalText()
+	fmt.Println("自定义编码：", string(data))
+
+	var decodeUser User
+	decodeUser.UnmarshalText(data)
+	fmt.Println("解码后：", decodeUser)
+}
+```
+
+执行结果：
+
+```
+自定义编码： 孙八:26
+解码后： {孙八 26}
+```
+
+### 3.4 注意事项
+
+- 结构体标签（Struct Tags）：在 `encoding/json` 和 `encoding/xml` 中，可以使用结构体标签来控制字段的编码和解码行为，如执行字段名、忽略字段等。
+- 错误处理：在编码和解码过程中，可能会发生错误，务必进行错误检查，防止程序崩溃或产生不正确的结果。
+- 性能考虑：不同的编码方式在性能上可能有所差异，根据具体需求选择合适的编码格式。
+- 安全性：在处理外部载入的数据时，要注意防范恶意数据，避免安全漏洞。
+
+### 3.5 总结
+
+`encoding` 包及其子包在 Go 语言数据库中扮演着重要的角色，提供了处理各种数据格式的便捷方法。熟练掌握这些包的使用，可以大大提高数据序列化和反序列化的效率，增强程序的兼容性和稳定性。
+
+
+
+
+
+
 
 
 
@@ -762,6 +1120,8 @@ for _, entry := range entries {
 ## 9. regexp
 
 ## 10. log
+
+## log
 
 
 
