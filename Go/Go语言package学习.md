@@ -1097,17 +1097,450 @@ func main() {
 
 `encoding` 包及其子包在 Go 语言数据库中扮演着重要的角色，提供了处理各种数据格式的便捷方法。熟练掌握这些包的使用，可以大大提高数据序列化和反序列化的效率，增强程序的兼容性和稳定性。
 
-
-
-
-
-
-
-
-
-
-
 ## 4. strconv
+
+Go 语言的 `strconv` 包用于实现基本数据类型与其字符串表示形式之间的转换。它提供了一系列函数，可以将字符串解析为基本数据类型，或者将基本数据类型格式化为字符串。这在处理用于输入、配置文件、日志记录等方面非常有用。
+
+### 4.1 整数和字符串之间的转换
+
+**（1）Atoi 和 Itoa**
+
+- `func Atoi(s string) (int, error)`
+
+将字符串 `s` 转换为整数（`int` 类型）。`Atoi` 是 `ParseInt(s, 10, 0)` 的简写没赚用于十进制整数的转换。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	s := "12345"
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		fmt.Println("转换失败：", err)
+	} else {
+		fmt.Println("整数值为：", i)
+	}
+}
+```
+
+输出结果为：
+
+```makefile
+整数值为： 12345
+```
+
+- `func Itoa(i int) string`
+
+将整数 `i` 转换为字符串。`Itoa` 是 `FormatInt(int64(i), 10)` 的简写。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	i := 67890
+	s := strconv.Itoa(i)
+	fmt.Println("字符串值为：", s)
+}
+```
+
+输出结果为：
+
+```makefile
+字符串值为： 67890
+```
+
+**（2）ParseInt 和 FormatInt**
+
+- `func ParseInt(s string, base int, bitSize int) (int64, error)`
+
+将字符串 `s` 转换为指定进制和位大小的整数（`int64` 类型）。参数说明：
+
+- `s`：要解析的字符串。
+- `base`：进制（2 到 36），0 表示自动判断进制（如「0x」开头表示 16 进制）。
+- `bitSize`：整数的位大小（0、8、16、32、64）。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	s := "0x1A"
+	i, err := strconv.ParseInt(s, 0, 64)
+	if err != nil {
+		fmt.Println("转换失败：", err)
+	} else {
+		fmt.Println("整数值为：", i)
+	}
+}
+```
+
+输出结果为：
+
+```
+整数值为： 26
+```
+
+- `func FormatInt(i int64, base int) string`
+
+将整数 `i` 格式化为指定进制的字符串。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	i := int64(26)
+	s := strconv.FormatInt(i, 16)
+	fmt.Println("字符串值为：", s)
+}
+```
+
+输出结果为：
+
+```
+字符串值为： 1a
+```
+
+**（3）PaeseUint 和 FormatUing**
+
+- `func ParseUint(s string, base int, bitSize int) (uint64, error)`
+
+类似于 `ParseInt`，但用于无符号整数。
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	s := "123"
+	u, err := strconv.ParseUint(s, 0, 64)
+	if err != nil {
+		fmt.Println("转换失败:", err)
+	} else {
+		fmt.Println("无符号整数值为:", u)
+	}
+}
+```
+
+输出结果为：
+
+```
+无符号整数值为: 123
+```
+
+- `func FormatUint(i uint64, base int) string`
+
+将无符号整数 `i` 格式化为指定进制的字符串。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	u := uint64(123)
+	s := strconv.FormatUint(u, 10)
+	fmt.Println("字符串值为:", s)
+}
+```
+
+输出结果为：
+
+```
+字符串值为: 123
+```
+
+### 4.2 浮点数和字符串之间的转换
+
+**（1）ParseFloat 和 FormatFloat**
+
+- `func ParseFloat(s string, bitSize int) (float64, error)`
+
+将字符串 `s` 解析为浮点数（`float64` 类型）。`bitSize` 参数指定了精度（32 表示 `float32`，64 表示 `float64`）。
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	s := "3.14159"
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		fmt.Println("转换失败:", err)
+	} else {
+		fmt.Println("浮点数值为:", f)
+	}
+}
+```
+
+- `func FormatFloat(f float64, fmt byte, prec int, bitSize int) string`
+
+将浮点数 `f` 格式化为字符串。
+
+- `fmt`：格式化标识符，`'f'`（小数形式），`'e'`（整数形式），`'g'`（根据情况选择 `'e'` 或 `'f'`）。
+- `prec`：精度，表示小数点后的位数。
+- `bitSize`：位大小（32 或 64）。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	f := 3.1415926535
+	s := strconv.FormatFloat(f, 'f', 2, 64)
+	fmt.Println(s)
+}
+```
+
+输出结果为：
+
+```
+3.14
+```
+
+### 4.3 布尔值和字符串之间的转换
+
+**（1）ParseBool 和 FormatBool**
+
+- `func ParseBool(str string) (bool error)`
+
+将字符串 `str` 解析为布尔值。接受的真值字符串有：`"1"`、`"t"`、`"T"`、`"true"`、`"True"`、`"TRUE"`；假值字符串有：`"0"`、`"f"`、`"F"`、`"false"`、`"False"`、`"FALSE"`。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	s := "True"
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		fmt.Println("转换失败:", err)
+	} else {
+		fmt.Println("布尔值为:", b)
+	}
+}
+```
+
+输出结果为：
+
+```
+布尔值为: true
+```
+
+- `func FormatBool(b bool) string`
+
+示例：
+
+```go
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	b := false
+	s := strconv.FormatBool(b)
+	fmt.Println("字符串值为:", s)
+}
+```
+
+输出结果为：
+
+```
+字符串值为: false
+```
+
+### 4.4 字符串的引用和转义
+
+**（1）Quote 和 Unquote**
+
+- `func Quote(s string) string`
+
+返回字符串 `s` 的双引号引用形式，必要时会对特殊字符进行转义。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	s := "Hello\nWorld"
+	q := strconv.Quote(s)
+	fmt.Println("引用字符串为:", q)
+}
+```
+
+输出结果为：
+
+```yml
+引用字符串为: "Hello\nWorld"
+```
+
+- `func Unquote(s string) (string, error)`
+
+将带引号的字符串 `s` 解析为原始字符串。
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	q := "\"Hello\\nWorld\""
+	s, err := strconv.Unquote(q)
+	if err != nil {
+		fmt.Println("解析失败:", err)
+	} else {
+		fmt.Println("原始字符串为:", s)
+	}
+}
+```
+
+输出结果为：
+
+```go
+原始字符串为: Hello
+World
+```
+
+### 4.5 其他常用函数
+
+**（1）Append 系列函数**
+
+这些函数用于将转换结果直接追加到字节切片（`[]byte`）中，可以减少内存分配，提升性能。
+
+- `func AppendInt(dst []byte, i int64, base int) []byte`
+
+将整数 `i` 转换为指定进制的字符串并追加到 `dst` 中。
+
+示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	dst := []byte("Number:")
+	dst = strconv.AppendInt(dst, 123, 10)
+	fmt.Println(string(dst))
+}
+```
+
+输出结果为：
+
+```
+Number:123
+```
+
+- `func AppendFloat(dst []byte, f float64, fmt byte, prec int, bitSize int) []byte`
+
+将浮点数 `f` 格式化为字符串并追加到 `dst` 中。
+
+- `func AppendBool(dst []byte, b bool) []byte`
+
+将布尔值 `b` 格式化为字符串并追加到 `dst` 中。
+
+**（2）IsPrint**
+
+- `func IsPrint(r rune) bool`
+
+判断字符 `r` 是否为可打印字符。
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	r := '你'
+	fmt.Println("是否为可打印字符:", strconv.IsPrint(r))
+	r = '\n'
+	fmt.Println("是否为可打印字符:", strconv.IsPrint(r))
+}
+```
+
+输出结果为：
+
+```
+是否为可打印字符: true
+是否为可打印字符: false
+```
+
+### 4.6 使用注意事项
+
+- 错误处理：大多数 `strconv` 函数都会在转换失败时返回错误，使用时应注意进行错误检查，避免程序崩溃。
+- 进制和位大小：在使用 `ParseInt` 和 `FormatInt` 等函数时，需要正确指定进制和位大小，以确保转换结果的准确性。
+- 性能优化：在高性能场景下，可以使用 `Append` 系列函数，避免不必要的字符串分配。
+
+### 4.7 总结
+
+`strconv` 包在 Go 语言的标准库中扮演着重要的角色，提供了丰富的函数用于基本数据类型和字符串之间的转换。熟练掌握这些函数，可以有效地处理数据解析、格式化和序列化等任务，提高代码的健壮性和可读性。
 
 ## 5. math
 
@@ -1121,7 +1554,7 @@ func main() {
 
 ## 10. log
 
-## log
+
 
 
 
