@@ -1544,15 +1544,331 @@ func main() {
 
 ## 5. math
 
-## 6. rand
+Go 语言的 math 包提供了基本的常数和数学函数，主要用于浮点数的运算。
 
-## 7. time
+### 5.1 常数
 
-## 8. io
+- `math.PI`：圆周率π，约等于 3.141592653589793。
+- `math.E`：自然常数 e，约等于 2.718281828459045。
 
-## 9. regexp
+### 5.2 基本数学函数
 
-## 10. log
+**（1）绝对值函数**
+
+- `math.Abs(x float64) float64`
+
+返回 x 的绝对值。
+
+```go
+fmt.Println(math.Abs(-3.5))  // 输出 3.5
+```
+
+**（2）乘方和开方**
+
+- `math.Pow(x, y float64) float64`
+
+返回 x 的 y 次幂，即 x^y。
+
+```go
+fmt.Println(math.Pow(2, 3))  // 输出 8
+```
+
+- `math.Sqrt(x float64) float`
+
+返回 x 的平方根。
+
+```go
+fmt.Println(math.Sqrt(16))  // 输出 4
+```
+
+- `math.Cbrt(x float64) float64`
+
+返回 x 的立方根。
+
+```go
+fmt.Println(math.Cbrt(27))  // 输出 3
+```
+
+**（3）指数和对数函数**
+
+- `math.Exp(x float64) float64`
+
+返回 e^x。
+
+```go
+fmt.Println(math.Exp(1))  // 输出：2.718281828459045
+```
+
+- `math.Log(x float64) float64`
+
+返回 x 的自然底数（以 e 为底）。
+
+```go
+fmt.Println(math.Log(math.E))  // 输出：1
+```
+
+- `math.Log10(x float64) float64`
+
+返回 x 的以 10 为底的对数。
+
+```go
+fmt.Println(math.Log10(100))  // 输出：2
+```
+
+- `math.Log2(x float64) float64`
+
+返回 x 的以 2 为底的对数。
+
+```go
+fmt.Println(math.Log2(8))  // 输出：3
+```
+
+**（4）取整和舍入函数**
+
+- `math.Ceil(x float64) float64`
+
+返回大于或等于 x 的最小整数。
+
+```go
+fmt.Println(math.Ceil(3.2))  // 输出：4
+```
+
+- `math.Floor(x float64) float64`
+
+返回小于或等于 x 的最大整数。
+
+```go
+fmt.Println(math.Floor(3.8))  // 输出：3
+```
+
+- `math.Round(x float64) float64`
+
+返回四舍五入后的整数值。
+
+```go
+fmt.Println(math.Round(3.5))  // 输出：4
+fmt.Println(math.Round(3.4))  // 输出：3
+```
+
+- `math.Trunc(x float64) float64`
+
+返回 x 的整数部分，直接截断小数部分。
+
+```go
+fmt.Println(math.Trunc(3.9))  // 输出：3
+```
+
+**（5）最大值和最小值**
+
+- `math.Max(x, y float64) float64`
+
+返回 x 和 y 中的较大值。
+
+```go
+fmt.Println(math.Max(3, 5))  // 输出：5
+```
+
+- `math.Min(x, y float64) float64`
+
+返回 x 和 y 中的较小值。
+
+```go
+fmt.Println(math.Min(3, 5))  // 输出：3
+```
+
+### 5.3 三角函数
+
+**（1）正弦、余弦、正切**
+
+- `math.Sin(x float64) float64`
+
+返回 x 的正弦值，x 的单位为弧度。
+
+```go
+fmt.Println(math.Sin(math.Pi / 2))  // 输出：1
+```
+
+- `math.Cos(x float64) float64`
+
+返回 x 的余弦值。
+
+```go
+fmt.Println(math.Cos(0))  // 输出：1
+```
+
+- `math.Tan(x float64) float64`
+
+返回 x 的正切值。
+
+```go
+fmt.Println(math.Tan(math.Pi / 4))  // 输出：1
+```
+
+**（2）反三角函数**
+
+- `math.Asin(x float64) flaot64`
+
+返回 x 的反正弦值，结果为弧度。
+
+```go
+fmt.Println(math.Asin(1))  // 输出：1.5707963267948966 (π/2)
+```
+
+- `math.Acos(x float64) float64`
+
+返回 x 的反余弦值。
+
+```go
+fmt.Println(math.Acos(0))  // 输出：1.5707963267948966 (π/2)
+```
+
+- `math.Atan(x float64) float64`
+
+返回 x 的反正切值。
+
+```go
+fmt.Println(math.Atan(1))  // 输出：0.7853981633974483 (π/4)
+```
+
+- `math.Atan2(y, x float64) float64`
+
+返回 `y/x` 的反正切值，结果在 [-π, π] 之间，考虑象限。
+
+```go
+fmt.Println(math.Atan2(1, 1))  // 输出：0.7853981633974483 (π/4)
+```
+
+**（3）双曲函数**
+
+- `math.Sinh(x float64) float64`
+
+返回 x 的双曲正弦值。
+
+- `math.Cosh(x float64) float64`
+
+返回 x 的双曲余弦值。
+
+- `math.Tanh(x flaot64) float64`
+
+返回 x 的双曲正切值。
+$$
+\begin{aligned}
+    Sinh(x) = \frac{e^x - e^{-x}}{2}  \\
+    Cosh(x) = \frac{e^x + e^{-x}}{2}  \\
+	Tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}
+\end{aligned}
+$$
+
+### 5.4 其它函数
+
+**（1）取模和余数**
+
+- `math.Mod(x, y float64) float64`
+
+返回 x 除以 y 的浮点数余数。
+
+```go
+fmt.Println(math.Mod(5.5, 2))  // 输出：1.5
+```
+
+- `math.Remainder(x, y float64) float64`
+
+返回 x 除以 y 的余数，结果可能为负数。
+
+**（2）误差函数**
+
+- `math.Hypot(p, q float64) float64`
+
+返回 `sqrt(p * p + q * q)`，即欧几里得距离。
+
+```go
+fmt.Println(math.Hypot(3, 4))  // 输出：5
+```
+
+**（3）符号函数**
+
+- `math.Copysign(x, y float64) float64`
+
+返回以 y 的符号为符号的 x。
+
+```go
+fmt.Println(math.Copysign(3, -1))  // 输出：-3
+```
+
+**（4）下一个表示数**
+
+- `math.Nextafter(x, y float64) float64`
+
+返回从 x 到 y 方向上的下一个最接近的浮点数。
+
+```go
+fmt.Println(math.Nextafter(1, 2))  // 输出：1.0000000000000002
+```
+
+### 5.5 常用技巧
+
+**（1）角度和弧度转换**
+
+- `math.Pi`
+
+    可以用于角度和弧度的转换：
+
+    - 弧度 = 角度 * （math.Pi / 180）
+    - 角度 = 弧度 * （180 / math.Pi）
+
+```go
+angle := 90.0
+radian := angle * (math.Pi / 180)
+fmt.Println(math.Sin(radian))  // 输出：1
+```
+
+**（2）判断特殊值**
+
+- `math.IsNaN(x float64) bool`
+
+判断 x 是否为 NaN（Not a Number）。
+
+- `math.IsInf(x float64, sign int) bool`
+
+    判断 x 是否为正无穷大或负无穷大。
+
+    - sign > 0：判断为正无穷大。
+    - sign < 0：判断为负无穷大。
+    - sign == 0：判断任意无穷大。
+
+```go
+fmt.Println(math.IsNaN(math.Sqrt(-1)))  // 输出：true
+fmt.Println(math.IsInf(1.0/0.0, 0))  // 输出：true
+```
+
+### 5.6 示例应用
+
+**（1）计算两个点之间的距离**
+
+```go
+func distance(x1, y1, x2, y2 float64) float64 {
+    return math.Hypot(x2 - x1, y2 - y1)
+}
+
+fmt.Println(distance(0, 0, 3, 4))  // 输出：5
+```
+
+**（2）四舍五入到指定小数位**
+
+```go
+func roundTo(value float64, places int) float64 {
+    shift := math.Pow(10, float64(places))
+    return math.Round(value * shift) / shift
+}
+```
+
+### 5.7 注意事项
+
+- 类型限制：math 包的函数大多接受并返回 float64 类型，因此在使用时需要注意类型转换。
+- 参数范围：某些函数对参数有特定的范围要求，例如反三角函数的输入值必须在 [-1, 1] 之间。
+- NaN 和 Inf：当计算结果不在实数范围内时，函数可能返回 NaN 或 Inf，需要进行判断处理。
+
+
 
 
 
