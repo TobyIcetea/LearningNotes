@@ -147,8 +147,590 @@ func main() {
 
 ## 7. time
 
-## 8. io
+Go 语言的 `time` 包提供了丰富的时间处理功能，包括获取当前时间、格式化和解析时间、计时、延迟操作等。以下是 `time` 包的一些常用的函数和类型，以及它们的使用方法。
 
-## 9. regexp
+### 7.1 获取当前时间
 
-## 10. log
+`time.Now()`
+
+返回当前的本地时间。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	currentTime := time.Now()
+	fmt.Println("当前时间是：", currentTime)
+}
+```
+
+### 7.2 时间格式化
+
+`time.Time.Format(layout string)`
+
+将时间格式化为制定的字符串格式。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	currentTime := time.Now()
+	formattedTime := currentTime.Format("2006-01-02 15:04:05")
+	fmt.Println("格式化后的时间是：", formattedTime)
+}
+```
+
+注意：Go 语言使用特定的基准时间 `2006-01-02 15:04:05` 来定义格式。
+
+### 7.3 解析时间字符串
+
+`time.Parse(layout, value string)`
+
+将指定格式的字符串解析为时间对象。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	timeStr := "2023-10-22 14:30:00"
+	layout := "2006-01-02 15:04:05"
+	parsedTime, err := time.Parse(layout, timeStr)
+	if err != nil {
+		fmt.Println("解析时间出错：", err)
+	} else {
+		fmt.Println("解析后的时间是：", parsedTime)
+	}
+}
+```
+
+### 7.4 时间延迟
+
+`time.Sleep(d Duration)`
+
+使当前进程暂停指定的时间。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	fmt.Println("等待 2 秒...")
+	time.Sleep(2 * time.Second)
+	fmt.Println("继续执行")
+}
+```
+
+### 7.5 计时器
+
+`time.NewTimer(d Duration)`
+
+创建一个计时器，在指定时间后触发。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	timer := time.NewTimer(time.Second)
+	fmt.Println("计时器开始")
+	<-timer.C
+	fmt.Println("计时器结束")
+}
+```
+
+### 7.6 定时执行
+
+`time.NewTicker(d Duration)`
+
+创建一个 Ticker，每隔指定时间触发一次。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	ticker := time.NewTicker(1 * time.Second)
+	go func() {
+		for t := range ticker.C {
+			fmt.Println("当前时间：", t)
+		}
+	}()
+	time.Sleep(5 * time.Second)
+	ticker.Stop()
+	fmt.Println("Ticker 已停止")
+}
+```
+
+### 7.7 时间差计算
+
+`time.Since(t Time)`
+
+计算自指定时间以来的时间差。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	start := time.Now()
+	time.Sleep(1 * time.Second)
+	elapsed := time.Since(start)
+	fmt.Println("经过时间：", elapsed)
+}
+```
+
+### 7.8 时间戳
+
+获取时间戳：
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	currentTime := time.Now()
+	timestamp := currentTime.UnixNano()
+	fmt.Println("当前时间戳：", timestamp)
+}
+```
+
+从时间戳创建时间对象：
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	timestamp := int64(1234567890)
+	timeObj := time.Unix(timestamp, 0)  // 参数：秒级时间戳和纳米级偏移量
+	fmt.Println("时间对象：", timeObj)
+}
+```
+
+### 7.9 时间比较
+
+`t1.Before(t2)`
+
+- 判断 `t1` 是否在 `t2` 之前。
+
+`t1.After(t2)`
+
+- 判断 `t1` 是否在 `t2` 之后。
+
+`t1.Equal(t2)`
+
+- 判断 `t1` 是否等于 `t2`。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	t1 := time.Now()
+	t2 := t1.Add(10 * time.Second)
+	fmt.Println("t1 在 t2 之前：", t1.Before(t2))
+	fmt.Println("t1 在 t2 之后：", t1.After(t2))
+	fmt.Println("t1 等于 t2：", t1.Equal(t2))
+}
+```
+
+### 7.10 时区处理
+
+`time.LoadLocation(name string)`
+
+加载指定的时区。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		fmt.Println("加载市区出错：", err)
+		return
+	}
+	timeInLoc := time.Now().In(loc)
+	fmt.Println("上海时间：", timeInLoc)
+}
+```
+
+### 7.11 时间加减
+
+`t.Add(d Duration)`
+
+在时间 `t` 上加上或减去指定的持续时间 `d`。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	now := time.Now()
+	future := now.Add(2 * time.Hour)
+	past := now.Add(-2 * time.Hour)
+	fmt.Println("当前时间：", now)
+	fmt.Println("2 小时后：", future)
+	fmt.Println("2 小时前：", past)
+}
+```
+
+### 7.12 获取时间的各个部分
+
+`t.Year()`、`t.Month()`、`t.Day()`、`t.Hour()`、`t.Minute()`、`t.Second()`
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	t := time.Now()
+	fmt.Printf("当前时间和时间：%d-%02d-%02d %02d:%02d:%02d\n", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+}
+```
+
+### 7.13 时间格式常量
+
+`time` 包中定义了一些常用的时间格式常量，如 `time.TFC3339`、`time.RFC1123` 等。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	t := time.Now()
+	fmt.Println("RFC3339 格式：", t.Format(time.RFC3339))
+	fmt.Println("RFC1123 格式：", t.Format(time.RFC1123))
+}
+```
+
+### 7.14 获取时间的纳秒、微秒和毫秒
+
+`t.UnixNano()`
+
+- 获取纳秒级时间戳。
+
+`t.UnixMicro()`
+
+- 获取微秒级时间戳。
+
+`t.UnixMilli()`
+
+- 获取毫秒级时间戳。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	t := time.Now()
+	fmt.Println("纳秒级时间戳：", t.UnixNano())
+	fmt.Println("微秒级时间戳：", t.UnixMicro())
+	fmt.Println("毫秒级时间戳：", t.UnixMilli())
+}
+```
+
+### 7.15 使用 `time.After` 和 `time.Tick`
+
+`time.After(d Duration)`
+
+返回一个通道，在指定时间后会接收到当前时间。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	fmt.Println("等待 1 秒...")
+	<-time.After(1 * time.Second)
+	fmt.Println("时间到")
+}
+```
+
+`time.Tick(d Duration)`
+
+返回一个通道，每隔指定时间发送当前时间值。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	tick := time.Tick(1 * time.Second)
+	for i := 0; i < 5; i++ {
+		t := <-tick
+		fmt.Println("Tick at", t)
+	}
+}
+```
+
+## 8. io 与 bufio
+
+在 Go 语言中，`io` 包和 `bufio` 包提供了许多用于处理输入和输出的函数的接口。它们主要用于文件、网络连接等数据流的读写操作，但 `bufio` 提供了更高效的缓冲 I/O 处理能力。以下是他们的常用函数和相关知识。
+
+### 8.1 `io` 包常用函数与接口
+
+`io` 包中定义了基础的 I/O 接口，提供文件、网络连接等的输入和输出操作。
+
+**（1）`io.Reader` 和 `io.Writer` 接口**
+
+- `io.Reader` 接口：用于读取数据。
+
+    ```go
+    type Reader interface {
+        Read(p []byte) (n int, err error)
+    }
+    ```
+
+    - `Read`：从数据源读取数据到给定的字节切片 `p`，返回读取的字节数和可能的错误。
+
+- `Writer` 接口：用于写入数据。
+
+    ```go
+    type Writer interface {
+        Write(p []byte) (n int, err error)
+    }
+    ```
+
+    - `Write`：将字节切片 `p` 中的数据写入目标，返回写入的字节数和可能的错误。
+
+**（2）`io.Copy`**
+
+- `Copy(dst Writer, src Reader) (written int64, err error)`
+    - 将 `src`（如文件或网络连接）中的数据写入 `dst`，返回写入的字节数和错误。
+    - 通常用于从一个数据源（如文件或网络）复制数据到另一个地方。
+
+**（3）`io.TeeReader`**
+
+- `TeeReader(r Reader, w Writer) Reader`
+    - 创建一个 `Reader`，读取数据时会同时写入 `Writer`，即分流读取的数据，常用于日志记录或调试。
+
+**（4）`io.LimitReader`**
+
+- `LimitReader(r Reader, n int64) Reader`
+    - 限制从 `r` 读取的数据量，最多读取 `n` 字节。通常用于防止读取过多数据。
+
+**（5）`io/ioutil.ReadFile`**
+
+- `ReadFile(filename string) ([]byte, error)`
+    - 一次性读取整个文件并返回内容，适合读取小型文件。
+
+### 8.2 `bufio` 常用函数与结构体
+
+`bufio` 包提供了缓冲输入和输出的能力，使得从 I/O 操作中读取或写入更加高效。
+
+**（1）`bufio.Reader`**
+
+`bufio.Reader` 为 `io.Reader` 提供了缓冲能力。常用于读取文件或网络数据时减少系统调用。
+
+- `NewReader`：创建一个缓冲读取器，包装一个 `io.Reader`
+
+    ```go
+    r := bufio.NewReader(ioReader)
+    ```
+
+- `ReadLine`：读取一行数据，不包括行结束符。
+
+    ```go
+    line, isPrefix, err := r.ReadLine()
+    ```
+
+    - `isPrefix` 表示该行是否被截断（即行太长了，需要多次读取）。
+
+- `ReadString`：读取直到指定的分隔符，返回读取到的字符串。
+
+    ```go
+    line, err := r.ReadString('\n')
+    ```
+
+- `Peek`：查看缓冲区中的数据，但不移动读取位置。
+
+    ```go
+    data, err := r.Peek(n)
+    ```
+
+    - 适合在决定对其多少数据之前“预览”数据。
+
+**（2）`bufio.Writer`**
+
+`bufio.Writer` 提供了缓冲写入功能，适合频繁的小数据写入时提高性能。
+
+- `NewWriter`：创建一个缓冲写入器。
+
+    ```go
+    w := bufio.NewWriter(ioWriter)
+    ```
+
+- `WriteString`：向缓冲区写入字符串。
+
+    ```go
+    w.WriteString("Hello, World!")
+    ```
+
+- `Flush`：将缓冲区的数据强制写入底层 `Writer`。
+
+    ```go
+    w.Flush()
+    ```
+
+**（3）`bufio.Scanner`**
+
+`Scanner` 是 `bufio` 中提供的一个用于分隔输入的简便方法，可以逐行扫描文件、网络等输入。
+
+- `NewScanner`：创建一个扫描器，包装一个 `io.Reader`。
+
+    ```go
+    scanner := bufio.NewScanner(ioReader)
+    ```
+
+- `Scan`：扫描下一段内容（如一行或一个单词），返回 `bool`。
+
+    ```go
+    for scanner.Scan() {
+        line := scanner.Text()
+        // 处理 line
+    }
+    ```
+
+### 8.3 总结
+
+`bufio` 与 `io` 结合使用的典型场景：
+
+- `bufio` 一般用于需要频繁读写的操作，比如逐行读取文件或网络数据，能有效减少系统调用的次数。
+- `io` 是底层的接口和函数，用于实现通用的读写操作。
+
+`io` 包为 Go 提供了基础的 I/O 操作接口，而 `bufio` 包进一步封装了缓冲的能力，能显著提供 I/O 的效率。根据应用场景选择合适的 `io.Reader`、`io.Writer` 以及 `bufio.Reader` 和 `bufio.Writer` 是编写高效 Go 程序的关键。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+regexp
+
+log
+
+sort
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
