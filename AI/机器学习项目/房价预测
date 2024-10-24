@@ -1,0 +1,94 @@
+# 房价预测
+
+跟着 AI 做的第一个机器学习项目。
+
+[链接](https://chatgpt.com/c/67186621-b9b4-800d-9aba-4fd5a55591e3)
+
+数据集解释：
+
+```
+1. MedInc: Median Income (中位数收入) - 代表某个区域内家庭的中位数收入，通常以美元计。
+2. HouseAge: House Age (房龄) - 表示房屋的平均建造年龄，通常是以年为单位。
+3. AveRooms: Average Rooms (平均房间数) - 代表每户住宅的平均房间数量。
+4. AveBedrms: Average Bedrooms (平均卧室数) - 代表每户住宅的平均卧室数量。
+5. Population: Population (人口) - 该区域内的总人口数量。
+6. AveOccup: Average Occupancy (平均居住人数) - 表示每个住宅单位的平均居住人数。
+7. Latitude: 纬度 - 该区域的地理纬度坐标。
+8. Longitude: 经度 - 该区域的地理经度坐标。
+9. MedHouseVal: Median House Value (中位房价) - 代表该区域内房屋的中位数价值，通常以美元计。这个是你的目标变量，即你要预测的房价。
+```
+
+代码：
+
+```python
+# 从 scikit-learn 加载另一个房价数据集
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.datasets import fetch_california_housing
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+
+# 加载数据
+data = fetch_california_housing(as_frame=True)
+df = pd.concat([data.data, data.target], axis=1)
+
+# 查看前几行数据
+print(df.head())
+
+# 检查缺失值
+print(df.isnull().sum())
+
+# 查看特征分布
+df.hist(bins=50, figsize=(20, 15))
+plt.show()
+
+# 目标列名称
+target_column = 'MedHouseVal'
+
+# 标准化数据（排除目标列）
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(df.drop(columns=[target_column]))
+
+# 将标准化的数据转换为 DataFrame，方便操作
+df_scaled = pd.DataFrame(X_scaled, columns=df.columns[:-1])
+
+# 手动添加目标列
+df_scaled[target_column] = df[target_column].values
+
+# 查看前几行
+print(df_scaled.head())
+
+# 划分特征和目标值
+X = df_scaled.drop(columns=[target_column])  # 特征列
+y = df_scaled[target_column]  # 目标列
+
+# 划分训练集和测试集（80% 训练，20% 测试）
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 输出训练集和测试集的大小
+print(f"训练集大小: {X_train.shape}, 测试集大小: {X_test.shape}")
+
+# 创建线性回归模型
+model = LinearRegression()
+
+# 使用训练集训练模型
+model.fit(X_train, y_train)
+
+# 输出模型的系数和截距
+print(f"回归系数: {model.coef_}")
+print(f"截距: {model.intercept_}")
+
+# 使用测试集进行预测
+y_pred = model.predict(X_test)
+
+# 计算均方误差（MSE）和 R²
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(f"均方误差 (MSE): {mse}")
+print(f"决定系数 (R²): {r2}")
+
+```
+
