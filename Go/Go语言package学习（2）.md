@@ -672,6 +672,348 @@ func main() {
 
 `io` 包为 Go 提供了基础的 I/O 操作接口，而 `bufio` 包进一步封装了缓冲的能力，能显著提供 I/O 的效率。根据应用场景选择合适的 `io.Reader`、`io.Writer` 以及 `bufio.Reader` 和 `bufio.Writer` 是编写高效 Go 程序的关键。
 
+## 9. net
+
+Go 语言的 `net` 包是标准库中用于网络编程的核心包之一，提供了跨平台的网络接口，包括 TCP、UDP、域名解析、Unix 域套接字功能。`net` 包使开发者能够方便地进行网络通信，构建各种网络应用程序，如 Web 服务器，聊天程序和文件传输工具。
+
+### 9.1 基本概念
+
+#### 9.1.1 `net.Conn` 接口
+
+`net.Conn` 是一个通用的网络连接接口，代表了面向流的网络连接，如 TCP 连接。它定义了以下方法：
+
+- `Read(b []byte) (n int, err error)`：从连接中读取数据。
+- `Write(b []byte) (n int, err error)`：向连接中写入数据。
+- `Close() error`：关闭连接。
+- `LocalAddr() net.Addr`：返回本地网络地址。
+- `RemoteAddr() net.Addr`：返回远程网络地址。
+- `SetDeadLine(t time.Time) error`：设置读写操作的绝对时间期限。
+- `SetReadDeadline(t time.Time) error`：设置读取操作的绝对时间权限。
+- `SetWriteDeadline(t time.Time) error`：设置写入操作的绝对时间权限。
+
+#### 9.1.2 `net.Listener` 接口
+
+`net.Listener` 接口用于面向流的网络服务的侦听器，主要用于 TCP 服务器。它定义了以下方法：
+
+- `Accept() (net.Conn, error)`：等待并返回下一个连接。
+- `Close() error`：关闭侦听器。
+- `Addr() net.Addr`：返回侦听器的网络地址。
+
+#### 9.1.3 网络地址
+
+`net.Addr` 接口表示网络地址。具体的实现有：
+
+- `net.IPAddr`：IP 地址。
+- `net.TCPAddr`：TCP 端口地址，包括 IP 和端口。
+- `net.UDPAddr`：UDP 端口地址，包括 IP 和端口。
+
+### 9.2 连接到服务器
+
+#### 9.2.1 `net.Dial` 函数
+
+`net.Dial` 用于连接到指定的网络地址，返回一个 `net.Conn` 接口。用法如下：
+
+```go
+conn, err := net.Dial("tcp", "localhost:8080")
+```
+
+参数：
+
+- `network`：网络类型，如`"tcp"`、`"udp"`、`"unix"`。
+- `address`：要连接的地址，格式因网络类型而异。
+
+#### 9.2.2 `net.DialTCP` 和 `net.DialUDP`
+
+这些函数用于创建 TCP 或 UDP 的网络连接，可以提供更多的控制选项，如指定本地地址。
+
+```go
+laddr, _ := net.ResolveTCPAddr("tcp", "localhost:0")
+raddr, _ := net.ResolveTCPAddr("tcp", "localhost:8080")
+conn, err := net.DialTCP("tcp", laddr, raddr)
+```
+
+### 9.3 创建服务器
+
+#### 9.3.1 `net.Listen` 函数
+
+`net.Listen` 用于创建指定网络和地址的监听器。
+
+```go
+listener, err := net.Listen("tcp", ":8080")
+```
+
+#### 9.3.2 `net.ListenTCP` 和 `net.ListenUDP`
+
+这些函数用于创建 TCP 或 UDP 的侦听器。
+
+```go
+addr, _ := net.ResolveTCPAddr("tcp", ":8080")
+listener, err := net.ListenTCP("tcp", addr)
+```
+
+### 9.4 TCP 编程示例
+
+#### 9.4.1 TCP 服务器
+
+```go
+package main
+
+import (
+	"fmt"
+	"net"
+)
+
+func main() {
+	listener, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		fmt.Println("Error listening:", err)
+		return
+	}
+	defer listener.Close()
+	fmt.Println("Server is listening on port 8080")
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Println("Error accepting:", err)
+			continue
+		}
+		go handleConnection(conn)
+	}
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+	buf := make([]byte, 1024)
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			fmt.Println("Error reading:", err)
+			return
+		}
+		fmt.Printf("Receiced: %s\n", string(buf[:n]))
+		conn.Write([]byte("Echo: " + string(buf[:n])))
+	}
+}
+```
+
+#### 9.4.2 TCP 客户端
+
+```go
+package main
+
+import (
+	"fmt"
+	"net"
+)
+
+func main() {
+	conn, err := net.Dial("tcp", "localhost:8080")
+	if err != nil {
+		fmt.Println("Error dialing:", err)
+		return
+	}
+	defer conn.Close()
+	conn.Write([]byte("Hello, Server!"))
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	if err != nil {
+		fmt.Println("Error reading:", err)
+		return
+	}
+	fmt.Printf("Received: %s\n", string(buf[:n]))
+}
+```
+
+### 9.5 UDP 编程示例
+
+#### 9.5.1 UDP 服务器
+
+```go
+package main
+
+import (
+    "fmt"
+    "net"
+)
+
+func main() {
+    addr, err := net.ResolveUDPAddr("udp", ":8080")
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+    conn, err := net.ListenUDP("udp", addr)
+    if err != nil {
+        fmt.Println("Error listening:", err)
+        return
+    }
+    defer conn.Close()
+    buf := make([]byte, 1024)
+    for {
+        n, clientAddr, err := conn.ReadFromUDP(buf)
+        if err != nil {
+            fmt.Println("Error reading:", err)
+            continue
+        }
+        fmt.Printf("Received from %v: %s\n", clientAddr, string(buf[:n]))
+        conn.WriteToUDP([]byte("Acknowledged"), clientAddr)
+    }
+}
+```
+
+#### 9.5.2 UDP 客户端
+
+```go
+package main
+
+import (
+    "fmt"
+    "net"
+)
+
+func main() {
+    serverAddr, err := net.ResolveUDPAddr("udp", "localhost:8080")
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+    conn, err := net.DialUDP("udp", nil, serverAddr)
+    if err != nil {
+        fmt.Println("Error dialing:", err)
+        return
+    }
+    defer conn.Close()
+    conn.Write([]byte("Hello UDP Server"))
+    buf := make([]byte, 1024)
+    n, _, err := conn.ReadFromUDP(buf)
+    if err != nil {
+        fmt.Println("Error reading:", err)
+        return
+    }
+    fmt.Printf("Received: %s\n", string(buf[:n]))
+}
+```
+
+### 9.6 域名解析
+
+#### 9.6.1 `net.LookupIP`
+
+用于将主机名解析为 IP 地址列表。
+
+```go
+package main
+
+import (
+	"fmt"
+	"net"
+)
+
+func main() {
+	ips, err := net.LookupIP("www.baidu.com")
+	if err != nil {
+		fmt.Println("Error", err)
+		return
+	}
+	for _, ip := range ips {
+		fmt.Println("IP:", ip)
+	}
+}
+```
+
+#### 9.6.2 `net.LookupHost`
+
+获取与主机名关联的地址。
+
+```go
+package main
+
+import (
+	"fmt"
+	"net"
+)
+
+func main() {
+	hosts, err := net.LookupHost("8.8.8.8")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	for _, host := range hosts {
+		fmt.Println("Host:", host)
+	}
+}
+```
+
+### 9.7 网路接口
+
+#### 9.7.1 获取网络接口列表
+
+```go
+package main
+
+import (
+	"fmt"
+	"net"
+)
+
+func main() {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	for _, iface := range interfaces {
+		fmt.Printf("Name: %s, MTU: %d\n", iface.Name, iface.MTU)
+	}
+}
+```
+
+#### 9.7.2 获取接口地址
+
+```go
+package main
+
+import (
+    "fmt"
+    "net"
+)
+
+func main() {
+    iface, err := net.InterfaceByName("WLAN")
+    if err != nil {
+       fmt.Println("Error:", err)
+       return
+    }
+    addrs, err := iface.Addrs()
+    if err != nil {
+       fmt.Println("Error:", err)
+       return
+    }
+    for _, addr := range addrs {
+       fmt.Println("Address:", addr.String())
+    }
+}
+```
+
+### 9.8 设置超时
+
+#### 9.8.1 `SetDeadline`
+
+为连接设置读写操作的超时时间。
+
+```go
+conn.SetDeadline(time.Now().Add(5 * time.Second))
+```
+
+#### 9.8.2 `SetReadDeadline` 和 `SetWriteDeadline`
+
+分别设置读取和写入操作的超时时间。
+
+```go
+conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
+```
+
 
 
 

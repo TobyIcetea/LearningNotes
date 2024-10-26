@@ -7,9 +7,8 @@
 1. [简单任务管理器](./projects/简单任务管理器.md)
 2. [并发网络爬虫](./projects/并发网络爬虫.md)
 3. [日志过滤器](./projects/日志过滤器)
+4. [并发日志分析器](./projects/并发日志分析器)
 
 
 
 
-
-并发网络爬虫：https://chatgpt.com/c/670b442c-8bfc-800d-bd48-df9c30495530

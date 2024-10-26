@@ -79,12 +79,6 @@ keadm gettoken
 
 先在边缘端下载 containerd。
 
-
-
-
-
-
-
 边缘节点也要先下载 keadm，并解压：
 
 ```bash
@@ -108,7 +102,6 @@ SERVER=192.168.100.140:10000
 keadm join --cloudcore-ipport=$SERVER \
 	--kubeedge-version=v1.18.1 \
 	--cgroupdriver=systemd \
-	--remote-runtime-endpoint=unix:///run/containerd/containerd.sock \
 	--token=$TOKEN
 ```
 
