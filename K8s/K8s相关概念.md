@@ -96,6 +96,83 @@ spec:
 
 总之，Helm Chart 在 K8s 中极大地简化了应用的打包、发布和管理，使得应用的部署过程变得标准化和可重复。
 
+## 2. ConfigMap
+
+在 Kubernetes 中，`ConfigMap` 是一种用于管理和配置应用程序的非机密数据的 API 对象。它允许你将配置数据域容器化应用程序分离，使应用程序的配置可以在不重新构建镜像的情况下进行修改。
+
+### 2.1 ConfigMap 的作用
+
+`ConfigMap` 主要用于存储应用程序的配置信息，例如：
+
+- 配置文件内容
+- 环境变量
+- 命令行参数
+
+通过使用 `ConfigMap`，你可以将配置数据域容器的定义分离开来，从而可以在不同的环境（如开发、测试、生产环境）中使用不同的配置，而无需更改应用程序的 Docker 镜像。
+
+### 2.2 ConfigMap 的创建
+
+`ConfigMap` 可以通过以下几种方式创建：
+
+- 使用 `YAML` 或 `JSON` 文件定义 `ConfigMap`
+- 通过命令行直接创建
+- 通过 `kubectl` 从现有文件或目录中创建
+
+以下是一个通过 YAML 文件定义 `ConfigMap` 的示例：
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+	name: my-config
+data:
+	# 存储 key-value 键值对
+	app.properties:
+    	database.url=jdbc:mysql://localhost:3306/mydb
+    	database.user=root
+    	database.password=password
+ 	log_level: "DEBUG"	
+```
+
+### 2.3 使用 ConfigMap
+
+`ConfigMap` 可以在 Pod 中以多种方式使用：
+
+- 作为环境变量：将 `ConfigMap` 中的数据注入为容器的环境变量。
+- 作为命令行参数：将 `ConfigMap` 中的数据作为参数传递给容器的启动命令。
+- 作为挂载卷（Volume）：将 `ConfigMap` 作为文件挂载到容器内，从而读取或写入配置文件。
+
+以下是一个将 `ConfigMap` 数据挂载为环境变量的 Pod 配置示例：
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-container
+    image: my-image
+    env:
+    - name: LOG_LEVEL
+      valueFrom:
+        configMapKeyRef:
+          name: my-config
+          key: log_level
+```
+
+### 2.4 ConfigMap 的优势
+
+- 解耦应用与配置：可以在不改变容器镜像的情况下修改应用的配置。
+- 动态更新：更新 `ConfigMap` 后，容器可以动态感知配置的变化。
+- 集中管理：可以在 K8s 集群中统一管理所有应用的配置。
+
+### 2.5 ConfigMap 与 Secret 的区别
+
+`ConfigMap` 适用于存储非机密的配置信息，而 `Secret` 则用于存储敏感数据（如密码、API 密钥）。虽然两者在使用方式上非常类似，但 `Secret` 会对数据进行 Base64 编码，并提供更多的安全保护机制。
+
+
+
 
 
 

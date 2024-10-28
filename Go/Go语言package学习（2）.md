@@ -1014,6 +1014,212 @@ conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
 ```
 
+## 10. regexp
+
+在 Go 语言中，`regexp` 包用于处理正则表达式，提供了强大的字符串匹配和操作功能。正则表达式是一种用于定义字符串模式的语言，可以方便地进行复杂的字符串搜索、替换和验证。
+
+### 10.1 基础知识
+
+正则表达式的基本结构是由字符和元字符组成的模式，用于描述字符串匹配规则。以下是一些常用的正则表达式元字符及其含义：
+
+- `.`：匹配单个字符（不包含换行符）
+- `^`：匹配字符串的开头。
+- `$`：匹配字符串的结尾。
+- `*`：匹配前一个字符零次或多次。
+- `+`：匹配前一个字符一次或多次。
+- `?`：匹配前一个字符零次或一次。
+- `[]`：匹配字符集中任意单个字符，例如 `[a-z]` 匹配任意小写字母。
+- `|`：或操作符，表示匹配左边或右边的模式。
+- `()`：分组，用于捕获匹配的子串。
+- `\`：转义字符，用于转义元字符，例如 `\.` 匹配一个点号
+
+### 10.2 Go 中 `regexp` 包的使用
+
+在 Go 语言中，`regexp` 包提供了一些常用函数和方法来处理正则表达式：
+
+#### 10.2.1 Compile 和 MustCompile
+
+这两个函数用于编译正则表达式，其中 `MustCompile` 会在编译失败时引发 panic。
+
+```go
+package main
+
+import (
+	"fmt"
+	"regexp"
+)
+
+func main() {
+	// Compile 正则表达式
+	re, err := regexp.Compile(`\d+`)
+	if err != nil {
+		fmt.Println("正则表达式编译失败：", err)
+		return
+	}
+	fmt.Println(re)
+}
+```
+
+#### 10.2.2 常用方法
+
+- MatchString：用于判断字符串是否匹配正则表达式。
+- FindString：查找第一个匹配的子串。
+- FindAllString：查找所有匹配的子串。
+- ReplaceAllString：替换匹配的子串。
+- Split：按正则表达式分割字符串。
+
+```go
+package main
+
+import (
+	"fmt"
+	"regexp"
+)
+
+func main() {
+
+	re := regexp.MustCompile(`\d+`)
+
+	// 判断字符串是否匹配
+	match := re.MatchString("123abc")
+	fmt.Println("是否匹配:", match) // 输出: true
+
+	// 查找第一个匹配的子串
+	result := re.FindString("abc123def456")
+	fmt.Println("第一个匹配的子串:", result) // 输出: 123
+
+	// 查找所有匹配的子串
+	results := re.FindAllString("abc123def456ghi789", -1)
+	fmt.Println("所有匹配的子串:", results) // 输出: [123 456 789]
+
+	// 替换匹配的子串
+	replaced := re.ReplaceAllString("abc123def456", "X")
+	fmt.Println("替换结果:", replaced) // 输出: abcXdefX
+
+	// 按正则表达式分割字符串
+	parts := re.Split("abc123def456ghi789", -1)
+	fmt.Println("分割结果:", parts) // 输出: [abc def ghi]
+}
+```
+
+### 10.3 高级用法
+
+#### 10.3.1 分组和捕获
+
+正则表达式可以使用 `()` 进行分组捕获，Go 语言中的 `FindStringSubmatch` 和 `SubexpNames` 可以用来获取捕获的子字符串和名称。
+
+```go
+package main
+
+import (
+	"fmt"
+	"regexp"
+)
+
+func main() {
+	re := regexp.MustCompile(`(?P<areaCode>\d{3})-(?P<number>\d{7})`)
+
+	// 获取匹配的子串
+	match := re.FindStringSubmatch("电话：010-1234567")
+	fmt.Println("匹配的子串：", match) // 输出：[010-1234567 010 1234567]
+
+	// 获取命名的子匹配项
+	for i, name := range re.SubexpNames() {
+		if i != 0 && name != "" {
+			fmt.Printf("%s: %s\n", name, match[i])
+		}
+	}
+	// 输出：
+	// areaCode: 010
+	// number: 1234567
+}
+```
+
+#### 10.3.2 匹配替换
+
+使用 `ReplaceAllStringFunc` 可以通过自定义函数来替换匹配的字符串。
+
+```go
+package main
+
+import (
+	"fmt"
+	"regexp"
+)
+
+func main() {
+	re := regexp.MustCompile(`\d+`)
+
+	// 使用自定义函数替换匹配项
+	replaced := re.ReplaceAllStringFunc("价格是 100 元，折扣后是 80 元", func(s string) string {
+		return "[" + s + "]"
+	})
+
+	fmt.Println("替换结果是：", replaced) // 输出：替换结果是： 价格是 [100] 元，折扣后是 [80] 元
+}
+```
+
+### 10.4 贪婪模式和非贪婪模式
+
+在 Go 语言中，正则表达式匹配中的贪婪模式和非贪婪模式是用于控制匹配字符串的行为。
+
+#### 10.4.1 贪婪模式
+
+- 定义：在默认情况下，正则表达式的量词（如 `*`、`+`、`{n,m}`）是贪婪的。
+
+- 行为：贪婪模式会尽可能多地匹配字符，直到不能再匹配为止。它会试图匹配尽可能长的字符串。
+
+- 例子：
+
+    ```go
+    package main
+    
+    import (
+    	"fmt"
+        "regexp"
+    )
+    
+    func main() {
+        re := regexp.MustCompile(`a.*b`)
+        match := re.FindString("a123b456b")
+        fmt.Println(match)  // 输出 "a123b456b"
+    }
+    ```
+
+    在这个例子中，正则表达式 `a.*b` 使用了贪婪模式，`.*` 会匹配尽可能多的字符，因此最终匹配的是 `"a123b456b"`。
+
+#### 10.4.2 非贪婪模式
+
+- 定义：如果在量词后面加上一个 `?`，量词就会变成非贪婪的。
+
+- 行为：非贪婪模式会尽可能少地匹配字符，即它会尝试匹配尽可能短地字符串。
+
+- 例子：
+
+    ```go
+    package main
+    
+    import (
+    	"fmt"
+        "regexp"
+    )
+    
+    func main() {
+        re := regexp.MustCompile(`a.*?b`)
+        match := re.FindString("a123b456b")
+        fmt.Println(match)  // 输出 "a123b"
+    }
+    ```
+
+    #### 10.4.3 总结
+
+    - 贪婪模式：`*`、`+`、`{n,m}` 等，匹配可能多的字符。
+    - 非贪婪模式：`*?`、`+?`、`{n,m}?` 等，匹配尽可能少的字符。
+
+### 10.5 注意事项
+
+- 正则表达式中需要使用反斜杠 `\` 进行转义，在 Go 中的字符串中需要写成 `\\`，例如 `\d` 需要写成 `\\d`。
+- `regexp` 包的匹配操作默认是贪婪模式，可以使用 `?` 切换为非贪婪模式，例如 `.*?`。
 
 
 
@@ -1028,35 +1234,6 @@ conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-regexp
 
 log
 
