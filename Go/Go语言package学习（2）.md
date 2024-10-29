@@ -1221,6 +1221,274 @@ func main() {
 - 正则表达式中需要使用反斜杠 `\` 进行转义，在 Go 中的字符串中需要写成 `\\`，例如 `\d` 需要写成 `\\d`。
 - `regexp` 包的匹配操作默认是贪婪模式，可以使用 `?` 切换为非贪婪模式，例如 `.*?`。
 
+## 11. log
+
+Go 语言中的 `log` 包是一个基础的日志记录工具，提供简单的日志记录功能，用于输出日志信息。`log` 包可以让我们轻松记录程序的运行状态、调试信息和错误信息。
+
+### 11.1 基本用法
+
+`log` 包提供了基础的日志记录方法，包括以下几个常用方法：
+
+- Print 系列：输出一般信息
+    - `log.Print()`：输出一般信息，并带有日期和时间。
+    - `log.Printf()`：格式化输出日志信息。
+    - `log.Println()`：输出信息并自动换行。
+- Fatal 系列：输出错误信息，并在日志输出后终止程序
+    - `log.Fatal()`：记录日志后调用 `os.Exit(1)` 退出程序。
+    - `log.Fatalf()`：格式化输出日志信息，并终止程序。
+    - `log.Fatalln()`：输出错误信息，自动换行并终止程序。
+- Panic 系列：输出错误信息，并爆出一个 panic。
+    - `log.Panic()`：输出日志信息，并触发一个 panic。
+    - `log.Panicf()`：格式化输出日志信息，并触发 panic。
+    - `log.Panicln()`：输出日志信息，自动换行，并触发 panic。
+
+### 11.2 配置日志输出
+
+可以使用 `log.SetFlags()` 和 `log.SetPrefix()` 来定义日志的输出格式和前缀。
+
+- SetFlags：指定日志的输出内容格式（如时间戳、文件名、行号等）。
+    - 常用的标志位包括：
+        - `log.Ldata`：日期（格式：2009/01/23）
+        - `log.Ltime`：时间（格式：01:23:23）
+        - `log.Lmicroseconds`：微秒级时间戳
+        - `log.Llongfile`：完整文件路径和行号
+        - `log.Lshortfile`：短文件路径和行号（仅文件名）
+        - `log.LUTC`：使用 UTC 时间而非本地时间
+- SetPrefix：指定日志的前缀，一般用于区别不同类型的日志。
+
+例如：
+
+```go
+package main
+
+import "log"
+
+func main() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetPrefix("[INFO] ")
+	log.Println("这是一个日志示例")
+}
+// 输出：
+// [INFO] 2024/10/29 14:19:18 main.go:8: 这是一个日志示例
+```
+
+### 11.3 日志输出到文件
+
+默认情况下，`log` 包会将日志输出到标准输出（`os.Stdout`）。可以通过将输出目标设置为文件来将日志写入文件：
+
+```go
+package main
+
+import (
+	"log"
+	"os"
+)
+
+func main() {
+	file, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal("无法打开日志文件", err)
+	}
+	log.SetOutput(file)
+	log.Println("这是写入文件的日志。")
+}
+```
+
+### 11.4 自定义 Logger
+
+可以创建 `Logger` 对象来实现不同的日志记录器，便于在用一项目中管理多种类型的日志。
+
+```go
+package main
+
+import (
+	"log"
+	"os"
+)
+
+func main() {
+	file, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal("无法打开日志文件", err)
+	}
+	log.SetOutput(file)
+	log.Println("这是写入文件的日志。")
+
+	logger := log.New(file, "[CUSTOM] ", log.Ldate|log.Ltime|log.Lshortfile)
+	logger.Println("自定义日志记录器")
+}
+```
+
+### 11.5 log 包的局限性
+
+`log` 包的功能简单，无法满足复杂的日志需求。对于高级日志需求（如日志分级、日志切割、异步记录等），可以使用第三方日志库，如 `zap` 或 `logrus`。
+
+## 12. sort
+
+Go 语言中的 `sort` 包提供了一系列函数和接口，用于对数据进行排序操作。这个包的核心功能包括基本类型的排序，如整数、浮点数、字符串的排序，适用于更复杂的数据结构。下面是 `sort` 包的主要是内容和用法：
+
+### 12.1 常用的排序函数
+
+`sort` 包为内置的基本数据类型提供了以下排序函数：
+
+- `sort.Ints(slice []int)`：对 `[]int` 类型的切片进行升序排序。
+- `sort.Float64s(slice []float64)`：对 `[]float64` 类型的切片进行升序排序。
+- `sort.Strings(slice []string)`：对 `[]string` 类型的切片进行升序排序。
+
+使用这些函数时，无需额外设置排序方式，直接调用即可，例如：
+
+```go
+package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+func main() {
+	numbers := []int{3, 1, 4, 1, 5, 9}
+	sort.Ints(numbers)
+	fmt.Println(numbers)
+}
+```
+
+### 12.2 检查排序状态
+
+`sort` 包还提供了相应的检查函数，用于判断切片是否已按升序排序：
+
+- `sort.IntAreSorted(slice []int)`：检查 `[]int` 类型的切片是否已排序。
+- `sort.Float64AreSorted(slice []float64)`：检查 `[]float64` 类型的切片是否已排序。
+- `sort.StringsAreSorted(slice []string)`：检查 `[]string` 类型的切片是否已排序。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+func main() {
+	numbers1 := []int{3, 1, 4, 1, 5, 9}
+	numbers2 := []int{1, 2, 3, 4, 5, 6}
+	fmt.Println(sort.IntsAreSorted(numbers1))  // 输出：false
+	fmt.Println(sort.IntsAreSorted(numbers2))  // 输出：true
+}
+```
+
+### 12.3 自定义排序
+
+对于复杂的数据结构，如结构体切片，Go 允许通过实现接口来定义排序规则。自定义排序的关键是实现 `sort.Interface` 接口中的三个方法：
+
+- `len()`：返回元素的数量。
+- `Less(i, j int)`：定义索引 `i` 和 `j` 的比较规则，若 `i` 小于 `j` 则返回 `true`。
+- `Swap(i, j int)`：交换索引 `i` 和 `j` 的位置。
+
+例如，假设有一个 `Person` 结构体切片，我们希望按年龄升序排序：
+
+```go
+package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+type Person struct {
+	Name string
+	Age  int
+}
+
+// 定义一个类型 People 来实现 sort.Interface
+type People []Person
+
+func (p People) Len() int           { return len(p) }
+func (p People) Less(i, j int) bool { return p[i].Age < p[j].Age }
+func (p People) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func main() {
+	people := People{
+		{"Alice", 30},
+		{"Bob", 25},
+		{"Charlie", 35},
+	}
+	sort.Sort(people)
+	fmt.Println(people)
+}
+```
+
+### 12.4 降序排序
+
+`sort` 包内置的排序方法默认是升序。如果想降序，可以借助 `sort.Reverse` 函数将排序逻辑反转。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+type Person struct {
+	Name string
+	Age  int
+}
+
+// 定义一个类型 People 来实现 sort.Interface
+type People []Person
+
+func (p People) Len() int           { return len(p) }
+func (p People) Less(i, j int) bool { return p[i].Age < p[j].Age }
+func (p People) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func main() {
+	people := People{
+		{"Alice", 30},
+		{"Bob", 25},
+		{"Charlie", 35},
+	}
+	sort.Sort(people)
+	fmt.Println(people)
+	sort.Sort(sort.Reverse(people))
+	fmt.Println(people)
+}
+```
+
+### 12.5 `sort.Slice` 和 `sort.SliceStable`
+
+在 Go 1.8 中引入了 `sort.Slice` 和 `Sort.SliceStable` 函数，可以使用匿名函数快速对切片进行排序，适合临时排序需求。
+
+- `sort.Slice(slice, func(i, j int) bool)`：传入切片和自定义比较函数。
+- `sort.SliceStable(slice, func(i, j int) bool)`：与 `sort.Slice` 类似，但保证排序稳定性（相同值的顺序不变）。
+
+例如按年龄降序排序：
+
+```go
+sort.Slice(people, func(i, j int) bool {
+    return people[i].Age > people[j].Age
+})
+```
+
+### 12.6 `sort.Search` 函数
+
+`sort.Search` 提供了二分查找功能，前提是切片已按升序排序。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+func main() {
+	x := []int{1, 2, 3, 4, 5, 6, 7}
+	index := sort.Search(len(x), func(i int) bool {
+		return x[i] >= 4
+	})
+	fmt.Println(index) // 输出：3（对应值 4 的索引）
+}
+```
 
 
 
@@ -1235,9 +1503,14 @@ func main() {
 
 
 
-log
 
-sort
+
+
+
+
+
+
+
 
 
 
