@@ -1490,9 +1490,258 @@ func main() {
 }
 ```
 
+## 13. context
 
+在 Go 语言中，`context` 包用于管理处理并发操作时的超时、取消以及请求范围内的数据共享等需求。它在网络编程、RPC、数据库查询等涉及超时控制和取消操作的场景中尤为重要。
 
+### 13.1 `context` 包的主要概念
 
+`context` 包中的核心是 `Context` 接口，它提供了一种机制，允许在 Goroutines 之间传递超时、取消信号和请求范围内的值。`Context` 本质上是一种只读的依赖对象，允许对长时间运行的操作进行管理。它主要包含以下几个方法：
+
+- `Done() <-chan struct{}`：取消一个 channel，当该 channel 被关闭时表示 context 被取消。
+- `Err() error`：返回 `Done` 关闭的原因，通常是 `context.Canceld` 或 `context.DeadlineExceeded`。
+- `Deadline() (deadline time.Time, ok bool)`：返回 context 的截止时间和是否设置了截止时间。
+- `Value(key interface{}) interface{}`：允许存储和访问请求范围内的值。
+
+### 13.2 常用的 Context 类型
+
+Go 中的 `context` 包提供了几种创建 context 的常用方法：
+
+- `context.Background()`：返回一个空的 context，通常作为顶级 context 使用，它不会被取消、没有超时，且不携带任何值。适用于没有请求范围或生命周期控制的 Goroutine 启动。
+- `context.TODO()`：当不确定要使用什么类型的 context 时可以使用 `TODO`，它类似于 `Background`，但表示代码仍需进一步改进或完善。
+- `context.WithCancel(parent Context)`：基于父 context 创建一个可取消的 context，并返回一个 `cancel` 函数。调用 `cancel` 时会关闭 `Done` 通道，通知由该 context 派生的所有 goroutine 取消操作。
+- `context.WithTimeout(parent Context, timeout time.Duration)`：创建一个带超时的 context。超时结束或 `cancel` 调用时，context 自动取消。适合需要在特定时间内完成的操作。
+- `context.WithDeadline(parent Context, deadline time.Time)`：指定一个具体时间点作为截止时间，类似于 `WithTimeout`， 但通过绝对时间设置。
+- `context.WithValue(parent Context, key, value interface{})`：在 context 中存储键值对，可用于在请求范围内传递特定的数据，但一般避免传递大对象或敏感数据。
+
+### 13.3 `context` 包的应用场景
+
+- 超时控制：在网络请求、数据库查询等场景中，防止因无响应而导致资源被占用，确保操作在一定时间内完成，否则取消。
+- 任务取消：在需要控制并发操作的 Goroutine 或子任务时，通过 context 传递取消信号，实现任务的停止。
+- 数据共享：在请求生命周期中传递请求范围内的数据，如用户身份信息、请求 ID 等。
+
+### 13.4 示例代码
+
+以下是一个使用 `context` 包的简单示例，在其中控制一个网络请求的超时和取消。
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+func main() {
+	// 设置一个超时为 2 秒的 context
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel() // 在函数退出时取消 context
+
+	// 创建请求并将 context 传递给 HTTP 客户端
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://baidu.com", nil)
+	if err != nil {
+		fmt.Println("创建请求失败：", err)
+		return
+	}
+
+	// 执行请求
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		// 超时或被取消时会捕获到错误
+		fmt.Println("请求失败：", err)
+		return
+	}
+	defer resp.Body.Close()
+	fmt.Println("请求成功，状态码：", resp.StatusCode)
+
+}
+```
+
+在这个示例中，`WithTimeout` 确保请求在 2 秒后自动取消，如果网络相应较慢，则会触发超时错误。这样可以避免 Goroutine 一直等待。
+
+### 13.5 注意事项
+
+- `context` 不适合在 `Value` 中存储大的数据结构或敏感信息，应仅传递请求范围的轻量级信息。
+- 确保在不再需要 context 时调用 `cancel` 函数，以防资源泄露。
+- 尽量避免在库函数中直接创建 context，而应由调用方传入。
+
+通过 `context` 包，可以更好地管理 Goroutine 的生命周期和控制操作的超时，为并发编程提供更加灵活和可靠的控制方式。
+
+## 14. sync
+
+在 Go 语言中，`sync` 包主要用于处理并发编程时的同步问题，提供了多种常用的同步工具，例如互斥锁（`Mutex`）、读写锁（`RWMutex`）、等待组（`WaitGroup`）、一次性执行（`Once`）等。这些工具帮助我们在多 goroutine 的场景下安全、有效地进行数据共享和任务协作。
+
+### 14.1 互斥锁（Mutex）
+
+- 类型 `sync.Mutex`
+
+- 作用：互斥锁用于保护临界区，确保同一时刻只有一个 goroutine 访问某个资源。
+
+- 方法：
+
+    - `Lock()`：锁定互斥锁。
+    - `Unlock()`：解锁互斥锁。
+
+- 用法：
+
+    ```go
+    var mu sync.Mutex
+    var count int
+    
+    func increment() {
+        mu.Lock()
+        count++
+        mu.Unlock()
+    }
+    ```
+
+- 注意：使用 `Mutex` 时务必注意 `Unlock` 的执行，常用 `defer` 语句避免遗忘。
+
+### 14.2 读写锁
+
+- 类型：`sync.RWMutex`
+
+- 作用：读写锁用于允许多个读操作并发执行，但写操作会互斥，保证读操作可以高效地并发执行，同时确保写操作的唯一性。
+
+- 方法：
+
+    - `RLock()` 和 `RUnlock()`：用于锁定 / 解锁读操作。
+    - `Lock()` 和 `Unlock()`：用于锁定 / 解锁写操作。
+
+- 用法：
+
+    ```go
+    var rw sync.RWMutex
+    var data int
+    
+    func read() int {
+        rw.RLock()
+        defer rw.Runlock()
+        return data
+    }
+    
+    func write(value int) {
+        rw.Lock()
+        data = value
+        rw.Unlock()
+    }
+    ```
+
+- 注意：读写锁有助于提高读操作较多时的性能，适合读多写少的场景。
+
+### 14.3 等待组（WaitGroup）
+
+- 类型：`sync.WaitGroup`
+
+- 作用：等待一组 goroutine 完成工作，尤其适合并行执行多个任务，等待所有任务完成后再继续后续逻辑。
+
+- 方法：
+
+    - `Add(delta int)`：设置要等待的 goroutine 数量。
+    - `Done()`：表示一个 goroutine 已完成工作。
+    - `Wait()`：阻塞等待所有 goroutine 完成。
+
+- 用法：
+
+    ```go
+    var wg sync.WaitGroup
+    
+    func worker() {
+        defer wg.Done()
+        // 执行工作
+    }
+    
+    func main() {
+        for i := 0; i < 3; i++ {
+            wg.Add(1)
+            go worker()
+        }
+        wg.Wait()  // 等待所有 goroutine 完成
+    }
+    ```
+
+### 14.4 一次性执行（Onece）
+
+- 类型：`sync.Once`
+
+- 作用：确保某个操作只会被执行一次，例如初始化操作等。
+
+- 方法：
+
+    - `Do(func())`：仅在首次调用时执行传入的函数，之后的调用都会忽略。
+
+- 用法：
+
+    ```go
+    var once sync.Once
+    
+    func initialize() {
+        fmt.Println("初始化操作")
+    }
+    
+    func main() {
+        once.Do(initialize)
+        // 无论调用多少次 once.Do(initialize)，initialize 都只会执行一次
+    }
+    ```
+
+### 14.5 条件变量（Cond）
+
+- 类型：`sync.Cond`
+
+- 作用：协调 goroutine 的执行，通过条件变量进行 goroutine 的等待和通知。
+
+- 方法：
+
+    - `Wait()`：使当前 goroutine 进入等待状态，直到被 `Signal` 或 `Broadcast` 唤醒。
+    - `Signal()`：唤醒一个等待的 goroutine。
+    - `Broadcast`：唤醒所有等待的 goroutine。
+
+- 用法：
+
+    ```go
+    package main
+    
+    import (
+    	"fmt"
+    	"sync"
+    	"time"
+    )
+    
+    var cond = sync.NewCond(&sync.Mutex{}) // 创建条件变量
+    var ready = false                      // 控制条件
+    
+    // 模拟等待的 goroutine
+    func waitForReady(id int) {
+    	cond.L.Lock() // 加锁，确保线程安全
+    	defer cond.L.Unlock()
+    	for !ready { // 如果 ready 为 false，进入等待
+    		fmt.Printf("Goroutine %d 等待条件满足...\n", id)
+    		cond.Wait() // 调用 cond.Wait（） 时，它会自动释放锁，使其他 goroutine 能够获得锁并检查或修改条件
+    	}
+    	fmt.Printf("Goroutine %d 完成等待，继续执行...\n", id)
+    }
+    
+    func main() {
+    	// 启动多个等待的 goroutine
+    	for i := 1; i <= 3; i++ {
+    		go waitForReady(i)
+    	}
+    
+    	time.Sleep(2 * time.Second) // 模拟一些准备操作
+    	fmt.Println("准备工作完成，通知所有等待的 goroutine...")
+    
+    	// 改变条件并通知所有等待的 goroutine
+    	cond.L.Lock()
+    	ready = true
+    	cond.Broadcast() // 广播唤醒所有等待的 goroutine
+    	cond.L.Unlock()
+    
+    	time.Sleep(time.Second) // 防止主函数提前结束
+    }
+    ```
 
 
 
