@@ -1743,11 +1743,77 @@ func main() {
     }
     ```
 
+## 15. runtime
+
+Go 语言的 `runtime` 包是核心包之一，提供了与 Go 语言运行时系统交互的低级函数和功能。`runtime` 包不仅涵盖了内存管理和垃圾回收，还提供了与协程、系统线程、调度器等关键机制的接口。以下是一些 `runtime` 包的重要内容：
+
+1. **内存管理**
+    - `runtime` 包中有许多与内存分配和管理相关的功能。Go 中的内存分配采用了 TCMalloc 算法的变体，通过 `runtime.mallocgc` 函数完成。
+    - Go 会自动进行垃圾回收（GC），`runtime.GC` 函数可以手动触发一次垃圾回收，但通常不需要手动调用一次垃圾回收，但通常不需要手动调用，因为 Go 运行时会自动触发。
+    - 可以通过 `runtime.ReadMemStats` 查看当前内存的使用统计信息，包含了堆内存大小、已分配的对象数和下一次 GC 的触发阈值等信息。
+2. **协程管理**
+    - `runtime` 包对协程（goroutine）的管理是其核心功能之一。`go` 关键字会自动调用 `runtime.newproc` 生成新的进程。
+    - `runtime.Goexit`：终止当前的协程，不影响其他协程的执行，且会调用所有已注册的 `defer` 函数。
+    - `runtime.Gosched`：将当前协程的控制权交还给调度器，以便让其他协程执行。
+3. **调度器**
+    - Go 语言使用 GPM 模型进行协程调度：G（goroutine）、P（Processor）和 M（Machine）。其中，G 是协程、P 是逻辑处理器、M 是 OS 线程。
+    - `runtime.GOMAXPROCS`：控制可以同时执行的最大线程数，这会直接影响并发性能。默认值是 CPU 核心数，但可以通过此函数修改。
+4. **垃圾回收（GC）**
+    - Go 使用并发标记-清除算法进行垃圾回收。`runtime` 包允许控制 GC 的一些细节。
+    - `runtime.SetGCPercent`：设置 GC 的触发百分比，默认是 100，即允许垃圾增加到内存的一半时触发 GC。
+    - `runtime.GC`：手动触发垃圾回收。
+    - `runtime.KeepAlive`：将对象标记为活动状态，以防止过早被回收。
+5. **系统相关**
+    - `runtime.Caller`：获取当前调用栈的信息，常用于错误处理和日志。
+    - `runtime.Callers`：获取当前协程的调用栈，以便于详细调试和分析。
+    - `runtime.NumCPU`：返回可用的 CPU 核心数。
+    - `runtime.NumGoroutine`：返回当前运行的核心数量。
+6. **时间控制**
+    - `runtime.nanotime`：获取当前时间戳，单位为纳秒。
+    - `runtime.timer` 和 `runtime.sleep`：为时间操作提供支持，例如延迟某些操作或创建定时器。
+7. **跨平台支持**
+    - `runtime` 包帮助 Go 在不同操作系统上实现一致的表现。Go 运行时包含了大量平台相关的实现，例如对不同平台的系统调用支持和调度策略调整。
+8. **调试和分析**
+    - `runtime.SetFinalizer`：为对象设置终结器，方便在垃圾回收时触发一些清理操作。
+    - `runtime.MemProfile` 和 `runtime.BlockProfile` 等方法可以生成内存和阻塞性能的分析数据。
+
+**示例：**
+
+可以使用 `runtime` 的一些函数来检查内存和协程状态：
+
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+)
+
+func main() {
+	// 打印内存使用情况
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	fmt.Printf("Allocated memory: %v KB\n", memStats.Alloc/1024)
+
+	// 打印当前的协程数量
+	fmt.Printf("Goroutine count: %d\n", runtime.NumGoroutine())
+
+	// 手动触发 GC
+	runtime.GC()
+	fmt.Println("Manually triggered garbage collection")
+}
+```
+
+执行结果：
+
+```go
+[root@toby runtime]# ./main
+Allocated memory: 62 KB
+Goroutine count: 1
+Manually triggered garbage collection
+```
 
 
-
-
-- [ ] runtime
 
 
 

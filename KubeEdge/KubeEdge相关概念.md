@@ -132,7 +132,7 @@ KubeEdge 是一个基于 Kubernetes 的开源计算平台，主要用于实现�
 ### 2.3 KubeEdge 组件的高可用
 
 - KubeEdge 的主要组件包括云端的 CloudCore 和边缘的 EdgeCore。实现高可用时，需要确保 CloudCore 的高可用，以保证边缘节点能够正常与云端通信。
-- 在云端，部署多个 CloudCore 示例并配置负载均衡器来分发请求可以增加 CloudCore 的可用性。
+- 在云端，部署多个 CloudCore 实例并配置负载均衡器来分发请求可以增加 CloudCore 的可用性。
 - 对于 EdgeCore，由于它运行在边缘设备上，通常可以直接在每个边缘设备上独立部署。如果某个 EdgeCore 节点发生故障，其他节点可以继续正常工作。
 
 ### 2.4 网络连接的高可用
