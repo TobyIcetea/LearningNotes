@@ -16,18 +16,6 @@ set showcmd
 set showmode
 " 启用 256 色
 set t_Co=256
-" 开启文件类型检查
-filetype indent on
-" 按下回车键之后，下一行的缩进会自动跟上一行的缩进保持一致
-set autoindent
-" 按下 Tab 键的时候，Vim 显示的是空格数
-set tabstop=2
-" 按下 >>、<<、== 的时候，每一级的字符数
-set shiftwidth=4
-" 由于 Tab 键在不同的碧娜机器缩进不一致，该设置自动将 Tab 转为空格
-set expandtab
-" tab 转变为多少个空格
-set softtabstop=4
 " 显示行号
 set number
 " 光标所在当前行高亮
@@ -44,6 +32,9 @@ set scrolloff=5
 set laststatus=2
 " 在状态栏显示光标的当前位置（位于哪一行，哪一列）
 set ruler
+" 对于任何文件，写代码时不延续上一行的注释
+autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
+
 EOF
 ```
 

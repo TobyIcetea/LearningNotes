@@ -171,6 +171,77 @@ spec:
 
 `ConfigMap` 适用于存储非机密的配置信息，而 `Secret` 则用于存储敏感数据（如密码、API 密钥）。虽然两者在使用方式上非常类似，但 `Secret` 会对数据进行 Base64 编码，并提供更多的安全保护机制。
 
+## 3. Ingress
+
+Ingress 是 Kubernetes 中用于管理外部访问集群服务的一种资源类型。它提供了一种基于 HTTP 和 HTTPS 的路由机制，能够将外部请求路由到集群内部的不同服务。Ingress 资源通常用于处理外部流量进入 Kubernetes 集群时的负载均衡、SSL 终止、基于路径的路由等任务。
+
+### 3.1 Ingress 的关键特点
+
+1. 路由请求：Ingress 控制器根据定义的规则将请求路由到适当的服务。路由规则通常包括：
+    - 基于主机名（例如 `www.example.com`）。
+    - 基于 URL 路径（例如 `/api/*`）。
+2. 负载均衡：Ingress 允许将流量分发到多个后端服务，提供负载均衡功能。
+3. SSL / TLS：终止：Ingress 还支持 SSL / TLS 终止，也就是外部请求到达 Ingress 控制器时，它可以解密 HTTPS 请求并将其转发为 HTTP 请求到内部服务。
+4. 认证和授权：通过集成外部认证服务，Ingress 可以进行身份验证和授权。
+
+### 3.2 Ingress 工作原理
+
+Ingress 本身并不是一个可以直接处理流量的组件，它需要和一个 Ingress Controller 一起工作。Ingress Controller 是一个在 Kubernetes 集群中运行的控制器，负责监控 Ingress 资源并实际执行流量路由的工作。
+
+常见的 Ingress Controller：
+
+- NGINX Ingress Controller：最流行的 Ingress Controller，基于 NGINX 作为反向代理。
+- Traefik：另一个流行的 Ingress Controller，提供更加动态的配置和自动化功能。
+- HAProxy、Envoy 等也可以作为 Ingress Controller。
+
+### 3.3 一个简单的 Ingress 示例
+
+假设我们有两个服务：`service-1` 和 `service-2`，我们希望根据 URL 路径将请求分别转发到这两个服务。以下是一个简单的 Ingress 配置示例：
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /service-1
+        pathType: Prefix
+        backend:
+          service:
+            name: service-1
+            port:
+              number: 80
+      - path: /service-2
+        pathType: Prefix
+        backend:
+          service:
+            name: service-2
+            port:
+              number: 80
+```
+
+在这个例子中，所有发往 `example.com/service-1` 的请求将被路由到 `service-1`，而所有发往 `example.com/service-2` 的请求将被路由到 `service-2`。
+
+### 3.4 配置 Ingress Controller
+
+在 Kubernetes 集群中，安装和配置 Ingress Controller 是使用 Ingress 的前提。安装时，可以通过 Helm 图标或直接应用 Kubernetes YAML 文件进行配置。
+
+例如，使用 Helm 安装 NGINX Ingress Controller：
+
+```bash
+helm install nginx-ingress ingress-nginx/ingress-nginx
+```
+
+安装完成后，Ingress Controller 会自动处理集群中的所有 Ingress 资源，并确保根据定义的规则正确地将流量路由到相应的服务。
+
+### 3.5 总结
+
+Ingress 提供了 Kubernetes 集群外部与内部之间的 HTTP 和 HTTPS 流量管理功能，是实现复杂路由、负载均衡和安全访问控制的关键组件。它的灵活性与 Ingress Controller 的结合使得流量管理更加安全和可扩展。
+
 
 
 
