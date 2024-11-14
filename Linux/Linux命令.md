@@ -6,8 +6,6 @@
 
 ```bash
 cat << EOF > ~/.vimrc
-" 语法高亮
-syntax on
 " 在底部显示，当前处于命令模式还是插入模式
 set showmode
 " 命令模式下，在底部显示，当前键入的命令
@@ -22,16 +20,10 @@ set number
 set cursorline
 " 自动拆行，即太长的行分成几行显示
 set wrap
-" 只有遇到指定的符号（比如空格、连词号或者其他标点符号）才发生折行。也就是说，不会在单词内部折行
-set linebreak
-" 指定折行处于编辑窗口的右边缘之间空出的字符数
-set wrapmargin=2
 " 垂直滚动时，光标距离顶部 / 底部的位置（单位：行）
 set scrolloff=5
 " 是否显示状态栏。0 表示不显示，1 表示只在多窗口时显示，2 表示显示。
 set laststatus=2
-" 在状态栏显示光标的当前位置（位于哪一行，哪一列）
-set ruler
 " 对于任何文件，写代码时不延续上一行的注释
 autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
@@ -94,6 +86,22 @@ function __tabby_working_directory_reporting --on-event fish_prompt
     echo -en "\e]1337;CurrentDir=$PWD\x7"
 end
 ```
+
+## 3. Centos 换源阿里云
+
+```bash
+mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
+curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+yum clean all
+yum makecache
+yum repolist
+```
+
+
+
+
+
+
 
 
 
