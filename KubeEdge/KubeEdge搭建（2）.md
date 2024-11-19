@@ -6,12 +6,12 @@
 
 我们本次是准备了五台机器，五台机器的设备名、IP 地址如下所示：
 
-```yaml
-master: 192.168.100.140
-node1: 192.168.100.141
-node2: 192.168.100.142
-edge1: 192.168.100.151
-edge2: 192.168.100.152
+```bash
+192.168.100.140 master
+192.168.100.141 node1
+192.168.100.142 node2
+192.168.100.151 edge1
+192.168.100.152 edge2
 ```
 
 其中的 master、node1 和 node2 是我们按照 K8s 教程部署的 K8s 集群。edge1 和 edge2 是纯净的 Linux 操作系统。
@@ -24,11 +24,14 @@ edge2: 192.168.100.152
 
 ```bash
 wget https://github.com/kubeedge/kubeedge/releases/download/v1.18.1/keadm-v1.18.1-linux-amd64.tar.gz
+
+# 将下载好的安装包解压，然后将里面的一个 keadm 可执行文件，复制到 `/usr/local/bin` 下面。
+tar zxf keadm-v1.18.1-linux-amd64.tar.gz
+mv keadm-v1.18.1-linux-amd64/keadm/keadm /usr/local/bin/
+
+# 验证安装是否成功
+keadm version
 ```
-
-接下来要做的操作是：将下载好的安装包解压，然后将里面的一个 keadm 可执行文件，复制到 `/usr/local/bin` 下面。
-
-然后可以使用 `keadm version` 来验证安装是否成功。
 
 之后我们就可以使用下面的命令安装 cloudcore 了：
 
@@ -86,7 +89,7 @@ replicaset.apps/cloudcore-64b5bc6f4f   1         1         1       99s
                 - master
 ```
 
-也就是说效果如下：
+修改后的效果如下：
 
 ![image-20241114160418132](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20241114160418132.png)
 
@@ -99,9 +102,7 @@ replicaset.apps/cloudcore-64b5bc6f4f   1         1         1       99s
         effect: "NoSchedule"
 ```
 
-也就是说最后的结果如下：
-
-![image-20241114161503003](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20241114161503003.png)
+修改后最后的结果如下：
 
 ![image-20241114161522047](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20241114161522047.png)
 
@@ -113,9 +114,59 @@ NAME                         READY   STATUS    RESTARTS   AGE     IP            
 cloudcore-599689d85f-4r7tw   1/1     Running   0          2m57s   192.168.100.140   master   <none>           <none>
 ```
 
+### 2.3 不要让 kube-proxy 部署到 edge 上
+
+如果让 kube-proxy 之类的组件部署到 edge 节点上，会出问题。所以要保证不要让 kube-proxy 部署到 edge 节点上。
+
+因为 kube-proxy 使用的是 daemonset 类型的 pod 控制器进行部署的，所以 edge 节点新加进来就会立马部署好 kube-proxy。我们可以通过这个命令来解决：
+
+```bash
+kubectl get daemonset -n kube-system |grep -v NAME |awk '{print $1}' | xargs -n 1 kubectl patch daemonset -n kube-system --type='json' -p='[{"op": "replace","path": "/spec/template/spec/affinity","value":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/edge","operator":"DoesNotExist"}]}]}}}}]'
+```
+
+> 对命令的解释：
+>
+> - `kubectl get daemonset -n kube-system`：会列出来哪个行内容，第一行是 NAME 之类的列名，第二行就是 kube-proxy 的 daemonset 的信息。
+>
+> - `| grep -v NAME`：将第一行列名去除，仅留下第二行的信息。
+>
+> - `| awk '{print $1}'`：将命令的第一行的第一个字段（也就是 daemonset 的名称）提取出来，这里获得的结果是 `kube-proxy`。
+>
+> - `| xargs -n 1 kubectl patch daemonset -n kube-system --type='json' -p='[{"op": "replace","path": "/spec/template/spec/affinity","value":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/edge","operator":"DoesNotExist"}]}]}}}}]'`
+>
+>     - `xargs -n 1`：命令会读取前面命令的输出，并对每个名称执行一次后面的命令。`-n 1` 表示每次处理一个名称。
+>
+>     - `kubectl patch daemonset -n kube-system`：对于指定的 daemonset 进行部分更新（patch）。
+>
+>     - `--type='json'`：表示使用 JSON 格式进行 patch 操作。
+>
+>     - `-p=-'[...]'`：指定实际的 JSON patch 内容，这里是用来修改 DaemonSet 的 `nodeAffinity` 设置。实际的内容如下：
+>
+>         ```json
+>         [{
+>             "op": "replace",
+>             "path": "/spec/template/spec/affinity",
+>             "value": {
+>                 "nodeAffinity": {
+>                     "requiredDuringSchedulingIgnoredDuringExecution": {
+>                         "nodeSelectorTerms": [{
+>                             "matchExpressions": [{
+>                                 "key": "node-role.kubernetes.io/edge",
+>                                 "operator": "DoesNotExist"
+>                             }]
+>                         }]
+>                     }
+>                 }
+>             }
+>         }]
+>         ```
+
 ## 3. 部署边缘端
 
-边缘端有一个要求是，要有容器运行时。所以我们按照之前的 K8s 文档，给 edge1 和 edge2 都安装好 containerd。注意：安装 containerd 的步骤都要做完，包括配置 crictl、配置 cni 插件等。
+两个前置条件：
+
+- 安装好 containerd（过程参考《快速搭建 Kubernetes 集群》）
+- 安装好 keadm（过程参考上面云端部分）
 
 然后在云端的 master 节点上获取 token：
 
@@ -159,95 +210,175 @@ I1114 16:19:49.070187   35628 join.go:94] 9. Install Complete!
 
 发现 edgecore 也是正常运行的。
 
-## 4. 解决网络问题
+## 4. 解决网络插件的问题
 
-虽然节点加入进来了，但是我们在 master 上面查看节点发现：
+但是如果想要部署 pod 到边缘端的话，还是会失败的。因为 flannel 的 pod 并没有被部署到 edge 节点上。
+
+因为 Kubeedge 和网络插件不兼容，所以需要亲和性配置。
+
+### 4.1 cloud 端
+
+flannel：
 
 ```bash
-[root@master ~]# kubectl get nodes
-NAME     STATUS     ROLES           AGE   VERSION
-edge1    NotReady   agent,edge      10m   v1.29.5-kubeedge-v1.18.1
-master   Ready      control-plane   20d   v1.28.2
-node1    Ready      <none>          20d   v1.28.2
-node2    Ready      <none>          20d   v1.28.2
+# 首先先利用之前部署好的 flannel 的配置文件将 flannel 删除
+kubectl delete -f kube-flannel.yml
+
+# 之后对 kube-flannel.yaml 文件进行修改
+cp kube-flannel.yml kube-flannel-cloud.yaml
+
+vim kube-flannel-cloud.yaml
+--------------------------------------------------------------
+# 修改其中的内容
+# 1. 在 DaemonSet 部分，将 name 改成：kube-flannel-cloud-ds。如下：
+metadata:
+  # 改的是这里
+  name: kube-flannel-cloud-ds
+  namespace: kube-flannel
+
+# 2. 在 nodeAffinity 的 matchExpressions 部分，添加节点亲和性
+            - matchExpressions: 
+              - key: kubernetes.io/os 
+                operator: In 
+                values: 
+                - linux 
+              # 加的是这里
+              - key: node-role.kubernetes.io/edge 
+                operator: DoesNotExist 
+--------------------------------------------------------------
+
+# 之后再应用该配置文件即可
+kubectl apply -f kube-flannel-cloud.yaml
 ```
 
-节点的状态还是 NotReady 的。
-
-然后通过如下的方法将 flannel 进行二进制部署：
+cloudcore：
 
 ```bash
-# 下载 flannel 二进制文件
-wget https://github.com/flannel-io/flannel/releases/download/v0.25.7/flanneld-amd64
+# 修改 cloudcore 的 configmap
+kubectl edit cm -n kubeedge
+---------------------------------------------------------------
+# 找到其中的 dynamicController.enable，修改为 true
+        dynamicController:
+          enable: true
+---------------------------------------------------------------
+```
 
-# 移动到 /usr/local/bin 下面
-mv flanneld-amd64 /usr/local/bin/flanneld
+### 4.2 edge 端
 
-# 添加可执行权限
-chmod +x /usr/local/bin/flanneld
+flannel：
 
-# 编辑配置文件
-mkdir /etc/flannel
-cat << EOF > /etc/flannel/options.env
-FLANNELD_IFACE=ens33  # 这里就写自己的网络接口
-FLANNELD_IP_MASQ=true
-FLANNELD_SUBNET_FILE=/run/flannel/subnet.env
-FLANNELD_ETCD_ENDPOINTS=http://<etcd-server>:2379
-EOF
+```bash
+# 复制一份边缘端的 flannel 配置文件
+cp kube-flannel.yml kube-flannel-edge.yaml
 
-# 启动 flannel 服务
-cat << EOF > /etc/systemd/system/flanneld.service
-[Unit]
-Description=Flannel overlay network agent
-Documentation=https://github.com/flannel-io/flannel
-After=network.target
+vim kube-flannel-edge.yaml
+--------------------------------------------------------------
+# 1. 将 DaemonSet 部分的名字修改为 kube-flannel-edge-ds
+metadata:
+  # 改的是这里
+  name: kube-flannel-edge-ds
+  namespace: kube-flannel
 
-[Service]
-Type=simple
-EnvironmentFile=/etc/flannel/options.env
-ExecStart=/usr/local/bin/flanneld --iface=${FLANNELD_IFACE} --ip-masq=${FLANNELD_IP_MASQ} --subnet-file=${FLANNELD_SUBNET_FILE} --etcd-endpoints=${FLANNELD_ETCD_ENDPOINTS}
-Restart=always
-LimitNOFILE=1048576
+# 2. 在 nodeAffinity 的 matchExpressions 部分，添加节点亲和性
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+              # 加的是这里
+              - key: node-role.kubernetes.io/edge
+                operator: Exists
 
-[Install]
-WantedBy=multi-user.target
-EOF
+# 3. 在 container 的 kube-flannel 的命令参数 args 中，加入一条命令：
+        args:
+        - --ip-masq
+        - --kube-subnet-mgr
+        # 加的是这里
+        - --kube-api-url=http://127.0.0.1:10550
+--------------------------------------------------------------
 
-# 启动并设置 flannel 为开机自启动
-systemctl daemon-reload
-systemctl enable flanneld
-systemctl start flanneld
+# 然后再应用该配置文件
+kubectl apply -f kube-flannel-edge.yaml
+```
 
-# 查看 flannel 的状态
-systemctl status flanneld
+edgecore：
 
-# 如果 Flannel 没有自动生成 CNI 配置文件，我们可以自己创建
-cat << EOF > /etc/cni/net.d/10-flannel.conf
-{
-  "name": "cbr0",
-  "type": "flannel",
-  "delegate": {
-    "isDefaultGateway": true
-  }
-}
+为了让 flannel 能否访问到 `http://127.0.0.1:10550`，我们需要配置 EdgeCore 的 metaServer 功能，在边缘节点上修改：
 
-EOF
-
-# 然后在 edgecore 的配置文件中，设置网络插件
+```bash
 vim /etc/kubeedge/config/edgecore.yaml
-# 修改如下的内容
-------------------------------------------------------
-modules:
-  edged:
-    networkPluginName: "cni"
-    cniConfDir: "/etc/cni/net.d"
-    cniBinDir: "/opt/cni/bin"
-    networkPluginMTU: 1500
-------------------------------------------------------
+--------------------------------------------------------------
+# 将 metaServer.enable 设置为 true
+    metaServer:
+      apiAudiences: null
+      dummyServer: 169.254.30.10:10550
+      # 修改的是这里
+      enable: true
 
-# 重启 edgecore
+# 将 edgeStream.enable 设置为 true
+# （虽然不知道有啥用，在这里也不是必要的，但是有教程推荐这样做）
+  edgeStream:
+    # 修改的是这里
+    enable: true
+--------------------------------------------------------------
+
+# 之后重启 edgecore
+systemctl daemon-reload
 systemctl restart edgecore
+systemctl status edgecore
 ```
+
+## 5. 测试
+
+执行下面的命令在边缘端发布一个 pod：
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+    ports:
+    - containerPort: 80
+  nodeSelector:
+    "node-role.kubernetes.io/edge": ""
+EOF
+```
+
+之后查看 pod 的状态：
+
+```bash
+[root@master ~]# kubectl get pods -o wide
+NAME    READY   STATUS    RESTARTS   AGE   IP           NODE    NOMINATED NODE   READINESS GATES
+nginx   1/1     Running   0          4s    10.244.4.3   edge1   <none>           <none>
+
+[root@master ~]# curl 10.244.4.3
+# 然后就可以显示出 nginx 的欢迎页面
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

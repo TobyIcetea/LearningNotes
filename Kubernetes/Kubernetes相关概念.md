@@ -364,6 +364,23 @@ spec:
 - 这种配置适合宿主机网络或具有高性能网络需求的应用，但也需要注意端口冲突和安全性问题。
 - 一般情况下，如果没有特殊需求，建议默认使用独立的网络命名空间（即 `HostNetwork: false`），以保持网络隔离和安全。
 
+## 6. Kubernetes 常见端口
+
+| 组件                    | 默认端口   | 描述                                       |
+| ----------------------- | ---------- | ------------------------------------------ |
+| kube-apiserver          | 6443       | Kubernetes 控制平面 API 端口               |
+| kube-controller-manager | 10252      | 控制器管理端口                             |
+| kube-scheduler          | 10251      | 调度器端口                                 |
+| kubelet                 | 10250      | 与 Node 上的 kubelet 进行通信端口          |
+| kube-proxy              | 10256      | 服务代理健康检查端口                       |
+| etcd                    | 2379，2380 | etcd 客户端与 peer 通信端口                |
+| coredns                 | 53         | dns 服务端口                               |
+| ingress controller      | 80，443    | 外部访问 Kubernetes 服务的 HTTP/HTTPS 端口 |
+| Dashboard               | 8001       | Kubernetes Dashboard Web UI 端口           |
+| Flannel CNI             | 8285，8472 | Flannel 网络插件的通信端口                 |
+| Metrics Server          | 8082       | 监控指标收集端口                           |
+| Prometheus              | 9090       | Prometheus Web UI 和 API 端口              |
+
 
 
 

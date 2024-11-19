@@ -216,17 +216,15 @@ chmod +x /usr/local/bin/flanneld
 
 # 编辑配置文件
 mkdir /etc/flannel
-vim /etc/flannel/options.env
--------------------------------------------------------
+cat << EOF > /etc/flannel/options.env
 FLANNELD_IFACE=ens33  # 这里就写自己的网络接口
 FLANNELD_IP_MASQ=true
 FLANNELD_SUBNET_FILE=/run/flannel/subnet.env
 FLANNELD_ETCD_ENDPOINTS=http://<etcd-server>:2379
--------------------------------------------------------
+EOF
 
 # 启动 flannel 服务
-vim /etc/systemd/system/flanneld.service
--------------------------------------------------------
+cat << EOF > /etc/systemd/system/flanneld.service
 [Unit]
 Description=Flannel overlay network agent
 Documentation=https://github.com/flannel-io/flannel
@@ -241,7 +239,7 @@ LimitNOFILE=1048576
 
 [Install]
 WantedBy=multi-user.target
--------------------------------------------------------
+EOF
 
 # 启动并设置 flannel 为开机自启动
 systemctl daemon-reload
@@ -252,8 +250,7 @@ systemctl start flanneld
 systemctl status flanneld
 
 # 如果 Flannel 没有自动生成 CNI 配置文件，我们可以自己创建
-vim /etc/cni/net.d/10-flannel.conf
-------------------------------------------------------
+cat << EOF > /etc/cni/net.d/10-flannel.conf
 {
   "name": "cbr0",
   "type": "flannel",
@@ -261,7 +258,8 @@ vim /etc/cni/net.d/10-flannel.conf
     "isDefaultGateway": true
   }
 }
-------------------------------------------------------
+
+EOF
 
 # 然后在 edgecore 的配置文件中，设置网络插件
 vim /etc/kubeedge/config/edgecore.yaml

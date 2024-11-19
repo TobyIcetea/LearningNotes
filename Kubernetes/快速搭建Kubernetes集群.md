@@ -13,7 +13,7 @@
 | ------ | --------------- | --------------------------- | ------------------------ |
 | Master | 192.168.100.140 | Centos7.5    基础设施服务器 | 2颗CPU  2G内存   50G硬盘 |
 | Node1  | 192.168.100.141 | Centos7.5    基础设施服务器 | 2颗CPU  2G内存   50G硬盘 |
-| Node2  | 192.168.100.132 | Centos7.5    基础设施服务器 | 2颗CPU  2G内存   50G硬盘 |
+| Node2  | 192.168.100.142 | Centos7.5    基础设施服务器 | 2颗CPU  2G内存   50G硬盘 |
 
 并且，在安装操作系统（例如 Centos 7.5）的时候，「软件选择」选择「基础设施服务器」。
 
@@ -112,13 +112,11 @@ node节点：   node2
     通过修改 linux 内核参数，添加网桥过滤和地址转发功能。
 
     ```bash
-    vim /etc/sysctl.d/kubernetes.conf
-    # 添加如下的配置
-    ---------
+    cat << EOF >> /etc/sysctl.d/kubernetes.conf
     net.bridge.bridge-nf-call-ip6tables = 1
     net.bridge.bridge-nf-call-iptables = 1
     net.ipv4.ip_forward = 1
-    ---------
+    EOF
     
     # 重新加载配置
     sysctl -p
@@ -129,7 +127,7 @@ node节点：   node2
     # 查看网桥过滤模块是否加载成功
     lsmod | grep br_netfilter
     ```
-
+    
 7. 配置 ipvs 功能。
 
     在 K8s 中 Service 有两种代理模型，一种是基于 iptables 的，一种是基于 ipvs 的。
@@ -138,7 +136,7 @@ node节点：   node2
 
     ```bash
     # 安装 ipset 和 ipvsadm
-    yum install ipset ipvsadmin -y
+    yum install ipset ipvsadm -y
     
     # 添加需要加载的模块写入脚本文件
     cat <<EOF >  /etc/sysconfig/modules/ipvs.modules
@@ -182,9 +180,8 @@ wget https://github.com/containerd/containerd/releases/download/v1.7.22/containe
 tar -zxvf containerd-1.7.22-linux-amd64.tar.gz -C /usr/local
 
 # 通过 systemd 启动 containerd
-vim /etc/systemd/system/containerd.service
 # 写入下面的内容（内容来自于 https://github.com/containerd/containerd/blob/main/containerd.service）
--------------------------------------------------------------------------------
+cat << EOF > /etc/systemd/system/containerd.service
 [Unit]
 Description=containerd container runtime
 Documentation=https://containerd.io
@@ -212,7 +209,8 @@ OOMScoreAdjust=-999
 
 [Install]
 WantedBy=multi-user.target
--------------------------------------------------------------------------------
+
+EOF
 
 # 加载配置、启动
 systemctl daemon-reload
@@ -373,10 +371,10 @@ ctr version
 
 ```bash
 # 下载 nerdctl
-wget https://github.com/containerd/nerdctl/releases/download/v1.7.7/nerdctl-1.7.7-linux-amd64.tar.gz
+wget https://github.com/containerd/nerdctl/releases/download/v2.0.0/nerdctl-2.0.0-linux-amd64.tar.gz
 
 # 解压，只需要把其中的 nerdctl 可执行文件放到 /usr/local/bin 就行了
-tar -zxvf nerdctl-1.7.7-linux-amd64.tar.gz nerdctl
+tar -zxvf nerdctl-2.0.0-linux-amd64.tar.gz nerdctl
 mv nerdctl /usr/local/bin
 
 # 验证
@@ -445,9 +443,7 @@ systemctl restart containerd
 
 ```bash
 # 由于 K8s 的镜像源在国外，速度比较慢，这里换成国内的镜像源
-vim /etc/yum.repos.d/kubernetes.repo
-# 添加下面的配置
--------------------
+cat << EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
 baseurl=http://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
@@ -456,19 +452,17 @@ gpgcheck=0
 repo_gpgcheck=0
 gpgkey=http://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
        http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
--------------------
+EOF
 
 # 安装 kubeadm、kubelet 和 kubectl
 # 这里安装的是 kubelet 1.28.2 版本
 yum install kubeadm-1.28.2-0 kubelet-1.28.2-0 kubectl-1.28.2-0 -y
 
 # 编辑 kubelet 的 cgroup
-vim /etc/sysconfig/kubelet
-# 添加下面的配置
-------------------------
+cat << EOF > /etc/sysconfig/kubelet
 KUBELET_CGROUP_ARGS="--cgroup-driver=systemd"
 KUBE_PROXY_MODE="ipvs"
-------------------------
+EOF
 
 # 设置 kubelet 开机自启动
 systemctl enable kubelet
@@ -476,7 +470,7 @@ systemctl enable kubelet
 
 ## 5. 集群初始化
 
-==**下面的操作只需要在 master 上面完成就可以！**==
+==**下面的操作都是只需要在 master 上面完成就可以！**==
 
 ```bash
 # 首先查看 kubeadm 的版本
@@ -580,7 +574,6 @@ kubernetes支持多种网络插件，比如flannel、calico、canal等等，任�
 vim /etc/kubernetes/manifests/kube-controller-manager.yaml
 # command 中加入如下的命令
 -------------------------------------------------------------
-    - --allocate-node-cidrs=true
     - --cluster-cidr=10.244.0.0/16
 -------------------------------------------------------------
 ```
@@ -588,9 +581,6 @@ vim /etc/kubernetes/manifests/kube-controller-manager.yaml
 ```bash
 # 下载 flannel
 wget https://github.com/flannel-io/flannel/blob/master/Documentation/kube-flannel.yml
-
-# 将网络模式从 vxlan 改为 host-gw
-sed -i 's#vxlan#host-gw#' ./kube-flannel.yml
 
 # 加载 flannel
 kubectl apply -f kube-flannel.yml
