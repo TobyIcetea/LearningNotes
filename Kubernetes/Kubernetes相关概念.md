@@ -381,6 +381,785 @@ spec:
 | Metrics Server          | 8082       | 监控指标收集端口                           |
 | Prometheus              | 9090       | Prometheus Web UI 和 API 端口              |
 
+## 7. iptables
+
+### 7.1 iptables 概念
+
+#### 【防火墙的基础分类】
+
+在开始了解 iptables 之前，我们需要明确什么是防火墙。
+
+1. 逻辑分类：
+
+    - 主机防火墙：用于保护单个主机的安全。例如，配置一个本地规则防止恶意扫描。
+    - 网络防火墙：通常位于网络边界，用来保护整个网络的入口或出口，如路由器上的防火墙。
+
+    例子：
+
+    - 主机防火墙：限制只能通过 SSH 访问特定服务器。
+    - 网络防火墙：企业网关防止内网主机直接暴露在公网。
+
+2. 物理分类：
+
+    - 硬件防火墙：通常是专用设备，如 Cisco ASA，性能强大但成本高。
+    - 软件防火墙：运行在普通硬件上的防火墙，如 `iptables`。
+
+    补充说明：硬件防火墙往往结合了专用硬件加速技术，更适用于高性能需求场景，而软件防火墙则胜在灵活性和低成本。
+
+---
+
+#### 【iptables 和 netfilter 的关系】
+
+很多初学者认为 `iptables` 是防火墙的核心，其实这是个误解。`iptables` 更准确的定义是一个工具，它通过 Linux 内核中的 `netfilter` 框架来实现防火墙功能。
+
+- netfilter：
+    - 核心功能：
+        1. NAT（网络地址转换）：用于实现内网设备访问公网的功能。
+        2. 包过滤：对进出系统的网络包进行检测与处理。
+        3. 包修改：对数据包的内容或头信息进行动态调整。
+    - 位置：位于 Linux 内核层，性能高效。
+- iptables：
+    - 本质：用户空间的命令行工具，主要用于操作 netfilter。
+    - 功能：通过定义规则，管理数据包如何在系统中流动。
+
+举例说明：
+
+- 假如内网中的一台服务器需要通过公网访问某服务，netfilter 的 NAT 模块可以实现 IP 转换，将私网地址映射到路由器的公网地址上，完成网络访问。
+
+---
+
+#### 【iptables 的核心概念】
+
+**链（Chains）**
+
+链是数据包通过防火墙时的“关卡”，可以理解为数据流的检查点。每个链上可以挂在多个规则，每个规则定义了如何处理数据包。
+
+- 常见链：
+    1. PREROUTING：处理入站数据包，在路由决策前。
+    2. INPUT：处理流向本机的入站数据包。
+    3. FORWARD：处理转发的数据包。
+    4. OUTPUT：处理本机发出的出站数据包。
+    5. POSTROUTING：处理路由决策后的出站数据包。
+
+数据流示例：
+
+- 本机访问的包：PREROUTING → INPUT。
+- 转发的包：PREROUTING → FORWARD → POSTROUTING。
+- 本机发出的包：OUTPUT → POSTROUTING。
+
+**表（Table）**
+
+`iptables` 使用表来组织规则。每种专注于一种特定功能：
+
+1. filter 表：最常用，处理包过滤规则，如放行（ACCEPT）或丢弃（DROP）。
+2. nat 表：处理 NAT 转换规则，如 SNAT、DNAT。
+3. mangle 表：处理高级的包修改规则。
+4. raw 表：关闭 NAT 的连接追踪，用于提高性能。
+
+表与链的对应关系：
+
+- PREROUTING：raw、mangle、nat。
+- INPUT：mangle、filter。
+- FORWARD：mangle、filter。
+- OUTPUT：raw、mangle、nat、filter。
+- POSTROUTING：mangle、nat。
+
+**规则（Rules）**
+
+每条规则包括以下两部分：
+
+1. 匹配条件：决定是否匹配数据包。
+    - 基本匹配条件：源地址、目标地址、协议类型。
+    - 扩展匹配条件：依赖模块扩展，如端口号、TCP 标志。
+2. 动作（Target）：定义匹配成功后的处理方式：
+    - 常见动作：
+        - ACCEPT：放行数据包。
+        - DROP：丢弃数据包，不返回信息。
+        - REJECT：拒绝数据包并返回响应。
+        - LOG：记录数据包信息到日志。
+
+---
+
+#### 【iptables 的实际应用】
+
+**实例一：本地防火墙配置**
+
+场景：只允许特定 IP 访问 SSH 服务。
+
+规则：
+
+```bash
+iptables -A INPUT -p tcp --dport 22 -s 192.168.0.100 -j ACCEPT
+iptables -A INPUT -p tcp --dport 22 -j DROP
+```
+
+解析：
+
+- 第一条规则：允许 `192.168.1.100` 的 IP 地址访问 22 端口。
+- 第二条规则：丢弃其他 IP 的 SSH 访问请求。
+
+**示例二：NAT 实现内网设备访问公网**
+
+场景：内网主机通过路由器共享公网地址上网。
+
+规则：
+
+```bash
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+```
+
+解析：
+
+- 将所有从内网出去的包的源地址改为路由器的公网地址，便于网络通信。
+
+**示例三：转发规则**
+
+场景：将访问本机某端口的数据包转发到内网某台服务器
+
+规则：
+
+```bash
+iptables -t nat -A PREROUTING -p tcp --dport 8080 -j DNAT --to-destination 192.168.1.50:80
+```
+
+解析：
+
+- 将所有到达本机 8080 端口的 TCP 请求转发到内网主机 `192.168.1.50` 的 80 端口。
+
+---
+
+#### 【iptables 的规则优先级】
+
+1. 当多个表挂载在同一链时，规则执行顺序
+    - raw → mangle → nat → filter。
+2. 数据包在链中依次匹配规则，直到找到匹配项后执行动作。
+
+---
+
+#### 【自定义链：更灵活的规则管理】
+
+除了默认链外，`iptables` 支持自定义链。这种链是为特定场景设计的，可以减少规则重复。
+
+例子：
+
+```bash
+iptables -N MY_CHAIN
+iptables -A INPUT -p tcp --dport 80 -j MY_CHAIN
+iptables -A MY_CHAIN -s 192.168.1.0/24 -j ACCEPT
+iptables -A MY_CHAIN -j DROP
+```
+
+解析：
+
+- 自定义链 `MY_CHAIN` 被挂载在 INPUT 链。
+- MY_CHAIN 中的规则：允许 192.168.1.0/24 网段的访问，拒绝其他流量。
+
+### 7.2 实际操作之规则查询
+
+#### iptables 表和链
+
+- 表：`iptables` 预定义了四张表，分别是 `raw`、`mangle`、`nat` 和 `filter`。每张表都有特定的功能，其中 `filter` 表是最常用的，主要负责网络数据包的过滤。
+- 链：每张表内包含多个链，链相当于一系列规则的集合。`filter` 表中的三个主要链是 `INPUT`、`FORAWRD`、`OUTPUT`，分别处理进入本机的数据包、转发给其他机器的数据包以及本机产生的外出数据包。
+
+#### 查看规则
+
+- 查看所有规则：使用 `iptables -L` 命令可以查看 `filter` 表的所有规则。若要查看其他表的规则，可以使用 `-t` 选项指定表名，如 `iptables -t nat -L`。
+- 查看特定链的规则：可以通过制定链名来查看特定链的规则，如 `iptables -L INPUT`。
+- 显示详细信息：加上 `-v` 选项可以显示更详细的信息，包括匹配的数据包数量（`pkts`）、字节数（`bytes`）等。
+- 不进行域名解析：使用 `-n` 选项可以防止将 IP 地址转换为域名，提高命令执行速度。
+- 显示规则编号：使用 `--line-numbers` 选项可以在输出中显示规则的编号，便于管理。
+- 显示精确计数：使用 `-x` 选项可以显示未经格式化的精确计数值。
+
+#### 示例命令
+
+- `iptables -L`：查看 `filter` 表的所有规则。
+- `iptables -t nat -L`：查看 `nat` 表的所有规则。
+- `iptables -L INPUT`：查看 `filter` 表中所有 `INPUT` 链的规则。
+- `iptables -v -L`：查看 `filter` 表的所有规则，显示详细信息。
+- `iptables -n -L`：查看 `filter` 表的所有规则，不进行域名解析。
+- `iptables --line-numbers -L`：查看 `filter` 表的所有规则，并显示规则编号。
+- `iptables -v -x -L`：查看 `filter` 表的所有规则，显示详细信息及精确计数。
+
+#### 链的默认策略
+
+每个链都有一个默认策略（`policy`），表示如果没有规则匹配时如何处理数据包。昌吉那的默认策略有 `ACCEPT`（接受）和 `DROP`（丢弃）。例如，`INPUT` 链的默认策略是 `ACCEPT`，这意味着如果没有规则明确拒绝某个数据包，该数据包将会被接受。
+
+### 7.3 规则管理
+
+#### 规则概念
+
+- 规则：由匹配条件和动作两部分组成。
+- 匹配条件：例如报文的源地址、目标地址、源端口、目标端口等。
+- 动作：常见的有 `ACCEPT`（接受）、`DROP`（丢弃）、`REJECT`（拒绝）。
+
+#### 规则操作
+
+- 查看规则：使用 `iptables -L` 命令可以查看当前 iptables 规则。
+- 清空规则：使用 `iptables -F` 可以清空指定链中的规则。如果不指定链名，会清空整个表中的所有规则。
+- 添加规则：
+    - 使用 `-A` 选项在链尾追加规则。
+    - 使用 `-I` 选项在链头或指定位置插入规则。
+- 删除规则：
+    - 根据规则编号删除：使用 `-D` 选项加上规则编号。
+    - 根据匹配条件与动作删除：使用 `-D` 选项加上匹配条件和动作。
+- 修改规则：
+    - 使用 `-R` 选项修改指定编号的规则。需要注意的是，使用 `-R` 选项时必须指明原规则的匹配条件，否则修改后的规则可能不正确。
+    - 另一种修改方式是先删除原有规则，再在相同位置插入新的规则。
+- 设置默认策略：使用 `-P` 选项设置指定链的默认策略。例如 `iptables -P INPUT DROP` 表示将 `INPUT` 链的默认策略设置为丢弃所有报文。
+
+#### 规则顺序的重要性
+
+- 规则的匹配是按顺序进行的，一旦报文匹配到某条规则，就会立即执行该规则的动作，后续的规则将不再匹配该报文。
+- 因此，规则的顺序非常重要，通常建议将更具体的规则放在更前面，更通用的规则放在后面。
+
+#### 规则保存
+
+- CentOS 6：使用 `service iptables save` 命令可以将当前的 iptables 规则保存到 `/etc/sysconfig/iptables` 文件中。
+- CentOS 7：需要先安装  `iptables-services` 包，然后使用 `service iptables save` 命令保存规则。或者使用 `iptables-save > /etc/sysconfig/iptables` 命令手动保存规则。
+
+#### 常用命令总结
+
+- 添加规则：
+
+    ```bash
+    iptables -t 表名 -A 链名 匹配规则 -j 动作
+    iptables -t 表名 -I 链名 [规则序号] 匹配条件 -j 动作
+    ```
+
+- 删除规则：
+
+    ```bash
+    iptables -t 表名 -D 链名 规则序号
+    iptables -t 表名 -D 链名 -j 动作
+    ```
+
+- 修改规则：
+
+    ```bash
+    iptables -t 表名 -R 链名 规则序号 匹配条件 -j 动作
+    ```
+
+- 设置默认策略：
+
+    ```bash
+    iptables -t 表名 -P 链名 动作
+    ```
+
+- 保存规则：
+
+    ```bash
+    service iptables save
+    iptables-save > /etc/sysconfig/iptables
+    ```
+
+
+### 7.4 iptables 匹配条件总结（1）
+
+#### 基础匹配条件
+
+1. 源地址匹配 `-s`
+
+    `iptables` 中使用 `-s` 选项来匹配报文的源地址。这是一个可以具体的 IP 地址，也可以是一个网段。例如，以下命令将拒绝所有来自 `192.168.1.146` 的流量：
+
+    ```bash
+    iptables -t filter -A INPUT -s 192.168.1.146 -j DROP
+    ```
+
+    同时指定多个源地址时，可以用逗号分隔：
+
+    ```bash
+    iptables -t filter -A INPUT -s 192.168.1.146,192.168.1.147 -j DROP
+    ```
+
+    还可以对匹配条件取反，使用 `!` 符号：
+
+    ```bash
+    iptables -t filter -A INPUT ! -s 192.168.1.146 -j ACCEPT
+    ```
+
+    上述命令表示，只要报文的源地址不是 `192.168.1.146`，就接受报文。
+
+2. 目标地址匹配 `-d`
+
+    与源地址匹配类似，`-d` 选项用于匹配报文的目标地址。例如，拒绝所有发送给 `10.6.0.156` 的流量：
+
+    ```bash
+    iptables -t filter -A INPUT -d 10.6.0.156 -j DROP
+    ```
+
+    同样地，可以指定多个目标地址或取反：
+
+    ```bash
+    iptables -t filter -A INPUT -d 10.6.0.156,10.6.0.101 DROP
+    iptables -t filter -A INPUT ! -d 10.6.0.156 -j ACCEPT
+    ```
+
+3. 协议类型匹配 `-p`
+
+    `-p` 选项用于指定需要匹配的报文协议类型，如 `tcp`、`udp` 等。例如，只允许 `tcp` 协议的流量：
+
+    ```bash
+    iptables -t filter -A INPUT -p tcp -j ACCEPT
+    ```
+
+    如果不指定协议类型，默认匹配所有类型的协议。
+
+4. 网卡接口匹配 `-i` 和 `-o`
+
+    `-i` 选项用于匹配报文流入的网卡接口，而 `-o` 选项用于匹配报文流出的网卡接口。例如，拒绝通过 `eth4` 流入的 `ICMP` 请求：
+
+    ```bash
+    iptables -t filter -A INPUT -i eth4 -p icmp -j DROP
+    ```
+
+    拒绝通过 `eth4` 流出的 `ICMP` 请求：
+
+    ```bash
+    iptables -t filter -A OUTPUT -i eth4 -p icmp -j DROP
+    ```
+
+#### 扩展匹配条件
+
+1. 源端口和目标端口匹配 `--sport` 和 `--dport`
+
+    源端口和目标端口匹配需要特定的扩展模块，如 `tcp` 模块。例如，拒绝所有尝试连接到 `22` 端口的 `TCP` 流量：
+
+    ```bash
+    iptables -t filter -A INPUT -p tcp --dport 22 -j DROP
+    ```
+
+    可以同时指定多个离散的端口，使用 `multiport` 模块：
+
+    ```bash
+    iptables -t filter -A INPUT -p tcp -m multiport --dports 22,80 -j DROP
+    ```
+
+2. 其他扩展模块
+
+    `iptables` 提供了多种扩展模块，如 `multiport`、`state` 等，可以根据需求选择合适的模块。例如，使用 `multiport` 模块同时指定多个端口范围：
+
+    ```bash
+    iptables -t filter -A INPUT -p tcp -m multiport --dports 22,80:88 -j DROP
+    ```
+
+#### 小结
+
+- 当规则中同时存在多个匹配条件时，多个条件之间默认存在“与”的关系，即报文必须同时满足所有条件，才能被规则匹配。
+- `-s` 用于匹配报文的源地址，可以同时指定多个源地址，每个 IP 之间用逗号隔开，也可以指定为一个网段。
+- `-d` 用于匹配报文的目标地址，可以同时指定多个目标地址，每个 IP 之间用逗号隔开，也可以指定为一个网段。
+- `-p` 用于匹配报文的协议类型，可以匹配的协议类型包括 `tcp`、`udp`、`udplite`、`icmp`、`esp`、`ah`、`sctp` 等。
+- `-i` 用于匹配报文是从哪个网卡流入本机的，如 `tcp` 模块的 `--sport` 和 `--dport`，`multiport` 模块的 `dports` 等。
+
+### 7.5 iptables 匹配条件总结（2）
+
+#### iprange 扩展模块
+
+`iprange` 模块允许指定一段连续的 IP 地址范围，用于匹配报文的源地址或目标地址。这对于需要对特定 IP 段进行控制的场景特别有用。
+
+示例：
+
+- 如果报文的源 IP 地址在 `192.168.1.127` 到 `192.168.1.146` 之间，则丢弃报文。
+
+    ```bash
+    iptables -t filter -I INPUT -m iprange --src-range 192.168.1.127-192.168.1.146 -j DROP
+    ```
+
+#### string 扩展模块
+
+`string` 模块允许指定要匹配的字符串，如果报文中包含该字符串，则满足匹配条件。这对于过滤含有特定内容的数据包非常有效。
+
+实例：
+
+- 如果报文中包含字符串“OOXX”，则丢弃该报文。
+
+    ```bash
+    iptables -t filter -I INPUT -p tcp --sport 80 -m string --algo hm --string "OOXX" -j DROP
+    ```
+
+    其中，`--algo bm` 表示使用 Boyer-Moore 算法进行字符串匹配，`--string "OOXX"` 指定了要匹配的字符串。
+
+#### time 匹配模块
+
+`time` 模块可以根据时间段来匹配报文，如果报文到达的时间在指定的时间范围内，则满足匹配条件。这对于实施时间敏感的安全策略非常有用。
+
+示例：
+
+- 每天早上 9 点到下午 6 点禁止访问 web 服务。
+
+    ```bash
+    iptables -t filter -I OUTPUT -p tcp --dport 80 -m time --timestart 09:00:00 --timestop 18:00:00 -j REJECT
+    ```
+
+- 只有周六日不能访问 web 服务。
+
+    ```bash
+    iptables -t filter -I OUTPUT -p tcp --dport 80 -m time --weekdays 6,7 -j REJECT
+    ```
+
+#### connlimit 扩展模块
+
+`connlimit` 模块可以限制每个 IP 地址同时连接到服务器的连接数量。这对于防止服务器过载非常重要。
+
+示例：
+
+- 每个 IP 地址最多只能占用两个 SSH 连接。
+
+    ```bash
+    iptables -t filter -I INPUT -p tcp --dport 22 -m connlimit --connlimit-above 2 -j REJECT
+    ```
+
+- 限制每个 C 类网段（例如 `192.168.1.0/24`）最多有两个 SSH 连接。
+
+    ```bash
+    iptables -t filter -I INPUT -p tcp --dport 22 -m connlimit --connlimit-above 2 --connlimit-mask 24 -j REJECT
+    ```
+
+#### limit 扩展模块
+
+`limit` 模块可以限制单位时间内流入的数据包数量，这对于防止某些类型的工具（如 DoS 攻击）非常有用。
+
+示例：
+
+- 限制每分钟最多流入 10 个 ICMP 包。
+
+    ```bash
+    iptables -t filter -I INPUT -p icmp -m limit 10/minute -j ACCEPT
+    ```
+
+- 限制每分钟最多流入 10 个 ICMP 包，初始突发量为 3。
+
+    ```bash
+    iptables -t filter -I INPUT -p icmp -m limit --limit-burst 3 --limit 10/minute -j ACCEPT
+    iptables -t filter -A INPUT -p icmp -j REJECT
+    ```
+
+### 7.6 扩展匹配条件之 `--tcp-flags`
+
+在深入探讨 `--tcp-flags` 选项之前，有必要回顾一下 TCP 协议的基础知识。TCP（传输控制协议）是一种面向连接的、可靠的、基于字节流的传输层通信协议。TCP 头包含多个字段，其中包括几个重要的标志位（flags），这些标志位用于控制连接的建立、数据传输以及连接的终止等操作。
+
+#### TCP 头中的标志位
+
+TCP 头中的标志位包括但不限于以下几种：
+
+- SYN（Synchronize Sequence Numbers）：同步序列编号，用于建立连接。
+- ACK（Acknowledgement）：确认，用于确认接收到的数据包。
+- FIN（Finish）：结束，用于关闭连接。
+- RSI（Reset）：重置，用于异常情况下重置连接。
+- URG（Urgent）：紧急，指出本报文段中有紧急数据。
+- PSH（Push）：推送，告诉接收方立即将报文段交给应用层，而不是等待缓冲区满后再交。
+
+#### `--tag-flags` 选项
+
+`--tcp-flags` 选项允许用户根据 TCP 头中的标志位来过滤网络流量。该选项接受两个参数：
+
+- 第一个参数是一个逗号分隔的列表，列出所有需要考虑的标志位。
+- 第二个参数也是一个逗号分隔的列表，列出这些标志为中哪些应该被设置为 1（即激活状态）。
+
+例如，要匹配一个 TCP SYN 标志位被设置的包，同时确保其他标志位未被设置，可以使用如下命令：
+
+```bash
+iptables -A INPUT -p tcp --tcp-flags SYN,ACK,FIN,RST,URG,PSH SYN -j LOG
+```
+
+这条规则将匹配所有仅设置了 SYN 标志位的包，并记录这些包的信息。这里，`SYN,ACK,FIN,RST,URG,PSH` 定义了考虑的标志位集合，而 `SYN` 则指定了在这个集合中哪些标志位需要被设置为 1。
+
+#### 简化标志位匹配
+
+对于常见的标志位组合，`iptables` 提供了一些简化的方法来进行匹配。例如，`ALL` 关键字可以用来代替所有的标准 TCP 标志位（即 `SYN,ACK,FIN,RST,URG,PSH`）。此外，`--syn` 选项是 `--tcp--flags SYN,RST,ACK,FIN SYN` 的一个快捷方式，专门用于匹配 TCP 连接建立的第一个包。
+
+#### 示例
+
+假设我们想要阻止任何尝试连接到 SSH 服务（默认端口 22）的请求，可以使用如下命令：
+
+```bash
+iptables -A INPUT -p tcp --dport 22 --syn -j DROP
+```
+
+这条规则会丢弃所有尝试通过端口 22 建立新连接的 SYN 包，从而有效地阻止了新的 SSH 连接尝试。
+
+### 7.7 udp 扩展与 icmp 扩展
+
+#### udp 扩展
+
+UDP（User Datagram Protocal）是一种无连接的传输层协议，适用于需要快速传输数据且对数据传输可靠性要求不高的应用。在 iptables 中，udp 扩展模块提供了对 UDP 协议报文的源端口（`--sport`）与目标端口（`--dport`）的匹配功能。
+
+- 基本使用：当你使用 `-p udp` 指定协议时，可以省略 `-m udp`，因为 iptables 会自动调用与协议名称相同的模块。例如，允许 Samba 服务的 137 和 138 端口通过防火墙，可以这样配置：
+
+    ```bash
+    iptables -t filter -I INPUT -p udp --dport 137 -j ACCEPT
+    iptables -t filter -I INPUT -p udp --dport 138 -j ACCEPT
+    ```
+
+- 端口范围：udp 扩展也支持指定连续的端口范围。例如，开放 137 至 157 之间的所有 UDP 端口。
+
+    ```bash
+    iptables -t filter -I INPUT -p udp --dport 137:157 -j ACCEPT
+    ```
+
+- 多端口匹配：若需指定多个离散的端口，则可借助 multiport 扩展模块。例如，同时开放 137、138 和 139 三个端口：
+
+    ```bash
+    iptables -t filter -I INPUT -p udp -m multiport --dports 137,138,139 -j ACCEPT
+    ```
+
+#### ICMP扩展
+
+ICMP（Internet Control Message Protocal）用于报告错误和交换有限的控制信息。它最常被人们熟知的应用是 ping 命令，用于检测网络连通性。
+
+- ICMP 报文类型：ICMP 报文分为查询类和错误类。例如，ping 命令发送的是类型 8（回声请求）的报文，接收方返回的是类型 0（回声响应）的报文。
+
+- 匹配特定类型的 ICMP 报文：你可以使用 `--icmp-type` 选项来匹配特定类型的 ICMP 报文。例如，阻止所有 ping 请求到达本机：
+
+    ```bash
+    iptables -t filter -I INPUT -p icmp --icmp-type 8 -j REJECT
+    ```
+
+- 使用描述名称匹配：除了数字类型外，还可以使用描述名称来匹配 ICMP 报文。例如，阻止 ping 请求的另一种方式：
+
+    ```bash
+    iptables -t filter -I INPUT -p icmp --icmp-type "echo-request" -j REJECT
+    ```
+
+### 7.8 state 扩展
+
+#### state 模块的基本概念
+
+`state` 模块允许 `iptables` 根据数据包在网络连接中的状态来进行过滤。在网络通信中，数据包可以处于不同的状态，`state` 模块定义了五种主要状态：
+
+- NEW：表示这是一个新的连接，或者是现有连接的一部分，但不是回应之前的任何数据包。
+- ESTABLISHED：表示这是现有连接的一部分，且该连接已经成功建立了双向通信。
+- RELATED：表示这个数据包与现有的某个连接相关联，但不属于该连接本身。例如，FTP 的数据传输连接与控制连接的关系。
+- INVALID：表示数据包不符合任何已知的连接模式，可能是错误的数据包。
+- UNTRACKED：表示数据包未被连接跟踪机制处理，通常是因为配置问题导致。
+
+#### 实践应用
+
+假设我们有一个场景，需要确保服务器只响应来自客户端的合法请求，而不接受任何未经请求的主动连接。在这种情况下，可以使用 `state` 模块来实现这一目标。
+
+#### 示例配置
+
+1. 阻止所有流量
+
+    首先，我们需要设置默认策略，阻止所有流入和流出的数据包：
+
+    ```bash
+    iptables -P INPUT DROP
+    iptables -P OUTPUT DROP
+    iptables -P FORWARD DROP
+    ```
+
+2. 允许已建立和相关的连接
+
+    接下来，允许所有已建立的连接和与现有连接相关的数据包通过：
+
+    ```bash
+    iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    ```
+
+3. 允许新的 SSH 连接
+
+    如果还需要允许新的 SSH 连接，可以添加如下规则：
+
+    ```bash
+    iptables -A INPUT -p tcp --dport 22 -m state --state NEW -j ACCEPT
+    iptables -A OUTPUT -p tcp --sport 22 -m state --state NEW -j ACCEPT
+    ```
+
+4. 处理异常情况
+
+    对于无效的数据包，可以直接丢弃：
+
+    ```bash
+    iptables -A INPUT -m state --state INVALID -j DROP
+    iptables -A OUTPUT -m state --state INVALID -j DROP
+    ```
+
+通过上述配置，我们不仅能够保证服务器的安全性，还能确保合法的网络通信不受影响。特别是对于像 SSH 这样的服务，通过允许新的连接，用户仍然可以正常登录服务器，同时避免了未经授权的连接尝试。
+
+### 7.9 黑白名单机制
+
+#### iptables 工作原理
+
+在 iptables 中，数据包会依次经过预定义的链，每个链包含一系列规则。当数据包与某条规则匹配时，就会执行该规则指定的动作，如接受（ACCEPT）、拒绝（DROP）或拒绝并通知发送方（REJECT）。如果没有规则匹配，则执行链的默认策略。
+
+#### 黑名单机制
+
+当链的默认策略设置为 `ACCEPT` 时，所有未匹配任何规则的数据包都将被接受。因此，若要实现黑名单机制，即阻止某些特定的数据包，应将规则的动作设置为 `DROP` 或 `REJECT`。这意味着只有那些规则被明确标记为“不受欢迎”的书包才会被组织，其余数据包均被允许通过。例如，如果想要阻止来自某个特定 IP 地址的流量，可以添加如下规则：
+
+```bash
+iptables -A INPUT -s 192.168.1.100 -j DROP
+```
+
+此规则将阻止来自 IP 地址 192.168.1.100 的所有入站流量。
+
+#### 白名单机制
+
+相反地，当链的默认策略设置为 `DROP` 时，所有未匹配任何规则的数据包都将被拒绝。因此，若要实现白名单机制，即只允许某些特定的数据包，应将规则的动作设置为 `ACCEPT`。这意味着只有那些被规则明确标记为“可信任”的数据包才会被允许通过，其余数据包均被阻止。例如，如果只想允许来自特定 IP 地址的 SSH 访问，可以添加如下规则：
+
+```bash
+iptables -A INPUT -p tcp --dport 22 -s 192.168.1.100 -j ACCEPT
+```
+
+此规则仅允许来自 IP 地址 192.168.1.100 的 SSH 流量通过。
+
+#### 实践案例：构建简单白名单
+
+假设我们需要为服务器设置一个简单的白名单，只允许特定 IP 地址的 SSH 和 HTTP 访问。首先，确保 INPUT 链的默认策略为 `DROP`：
+
+```bash
+iptables -P INPUT DROP
+```
+
+接下来，添加允许特定 IP 地址访问 SSH（端口 22）和 HTTP（端口 80）的规则：
+
+```bash
+iptables -A INPUT -p tcp --dport 22 -s 192.168.1.100 -j ACCEPT
+iptables -A INPUT -p tcp --dport 80 -s 192.168.1.100 -j ACCEPT
+```
+
+以上配置确保只有来自 192.168.1.100 的 SSH 和 HTTP 请求被允许，其他所有请求均被拒绝。
+
+#### 注意事项
+
+- 默认策略：设置合理的默认策略非常重要。对于生产环境，通常建议采用更为严格的限制，如 `DROP`，以减少安全风险。
+- 误操作保护：为了避免因误操作（如 `iptables -F` 清除所有规则）导致无法管理服务器，可以在设置 `DROP` 默认策略前，先确保至少有一条允许管理员远程登陆的规则存在。或者，可以将默认策略设置为 `ACCEPT`，并在链尾添加一条 `DROP` 规则，以实现类似白名单的效果，同时保留管理员的访问权限。
+- 测试：在生产环境中应用新的 iptables 规则前，应在测试环境中充分验证其效果。
+
+### 7.10 自定义链
+
+#### 为什么需要自定义链？
+
+在日常运维中，随着网络环境的复杂化，`iptables` 的默认链（如 `INPUT`、`OUTPUT`、`FORWARD` 等）中可能会累积大量的规则。这戏规则可能涉及不同的服务（如 HTTP、SSH）、不同的网络地址（私网 IP、公网 IP）等。当需要对特定服务或特定网络地址的规则进行调整时，如果所有规则都混杂在一起，无疑会增加管理难度。因此，`iptables` 提供了自定义链的功能，帮助我们更好地阻止和管理规则。
+
+#### 如何创建自定义链？
+
+创建自定义链非常简单，只需要使用 `-N` 选项，后面跟上你想创建的链的名字。例如，如果你想创建一个专门用来处理 Web 服务相关规则的自定义链，可以这样做：
+
+```bash
+iptables -t filter -N INT_WEB
+```
+
+这里，`-t filter` 指定了操作的是 `filter` 表， 而 `-N IN_WEB` 则创建了一个名为 `IN_WEB` 的自定义链。创建完成后，可以通过 `iptables -L` 命令查看，会发现新链的引用计数为 0，说明它还没有被任何默认链引用。
+
+#### 引用自定义链
+
+自定义链创建后，还需要将其引用到合适的默认链中才能生效。例如，如果我们想让所有访问 80 端口的 TCP 报文都由 `IN_WEB` 链中的规则处理，可以在 `INPUT` 链中添加以下规则：
+
+```bash
+iptables -t filter -I INPUT -p tcp --dport 80 -j IN_WEB
+```
+
+这里，`-I INPUT` 表示在 `INPUT` 链中插入一条新的规则；`-p tcp --dport 80` 指定了该规则匹配所有目标端口为 80 的 TCP 报文；`-j IN_WEB` 则表示将匹配到的报文交给 `IN_WEB` 链处理。
+
+#### 修改自定义链的名称
+
+随着时间的推移，你可能会觉得原来的自定义链名不再适合当前的需求，这时可以使用 `-E` 选项来修改自定义链的名称：
+
+```bash
+iptables -E IN_WEB WEB
+```
+
+这条命令将 `IN_WEB` 链重命名为 `WEB`。值得注意的是，引用该链的地方也会自动更新为新的名称。
+
+#### 删除自定义链
+
+当一个自定义链不再需要时，可以通过 `-X` 选项将其删除。但请注意，删除自定义链需要满足两个条件：
+
+1. 该自定义链没有被任何默认链引用。
+2. 该自定义链中没有任何规则。
+
+例如，要删除名为 `WEB` 的自定义链，首先需要确保它没有被引用且链内无规则。
+
+```bash
+iptables -D INPUT -p tcp --dport 80 -j WEB  # 删除引用
+iptables -F WEB  # 清空链内的规则
+iptables -X WEB  # 删除自定义链
+```
+
+### 7.11 网络防火墙
+
+在深入探讨如何利用 iptables 构建网络防火墙之前，我们先简要回顾一下 iptables 的基本概念。iptables 是一个强大的工具，用于在 Linux 系统上配置 IPv4 数据包过滤和 NAT。它支持多种表，每个表包含多个链，链中又包含多个规则。这些规则决定了数据包如何被处理。
+
+#### 防火墙分类
+
+防火墙从逻辑上可以分为两大类：
+
+- 主机防火墙：针对单一主机进行防护。
+- 网络防火墙：通常位于网络的入口或边缘，保护整个网络内的主机。
+
+#### iptables 作为网络防火墙
+
+当我们希望 iptables 扮演网络防火墙的角色时，这意味着 iptables 所在的主机必须位于网络的入口位置，负责过滤并转发进出网络的数据包。在这种情况下，iptables 的主要任务是“过滤并转发”。
+
+#### 实验环境搭建
+
+为了更好地理解 iptables 作为网络防火墙的工作原理，我们可以通过以下实验环境进行学习：
+
+- 内部网络：网段为 10.1.0.0/16，包含主机 C（10.1.0.1）和防火墙主机 B（10.1.0.3）。
+- 外部网络：包含主机 A（192.168.1.147），通过防火墙主机 B（192.168.1.146）与内部网络通信。
+
+#### 开启核心转发功能
+
+为了让 iptables 所在的主机 B 能够执行转发功能，需要开启核心转发。可以通过修改 `/proc/sys/net/ipv4/ip_forward` 文件或使用 `sysctl` 命令来实现。为了确保设置永久生效，可以在 `/etc/sysctl.conf` 文件中添加 `net.ipv4.ip_forward=1`。
+
+#### 配置 iptables 规则
+
+1. 初始化规则：首先确保主机 B 上的 iptables 规则为空，避免已有规则干扰实验。
+
+2. 设置默认拒绝规则：在 FORWARD 链中添加一条默认拒绝所有数据包的规则，确保安全。
+
+    ```bash
+    iptables -A FORWARD -j REJECT
+    ```
+
+3. 放行特定服务的请求：例如，允许内部网络主机访问外部网络的 Web 服务（端口 80）和 SSH 服务（端口 22）。
+
+    ```bash
+    iptables -I FORWARD -s 10.1.0.0/16 -p tcp --dport 80 -j ACCEPT
+    iptables -I FORWARD -s 10.1.0.0/16 -p tcp --dport 22 -j ACCEPT
+    ```
+
+4. 放行响应数据包：为了确保服务的可用性，还需要放行外部网络对内部网络请求的响应数据包。
+
+    ```bash
+    iptables -I FORWARD -d 10.1.0.0/16 -p tcp --sport 80 -j ACCEPT
+    iptables -I FORWARD -d 10.1.0.0/16 -p tcp --sport 22 -j ACCEPT
+    ```
+
+5. 优化规则：使用 state 扩展模块，可以简洁地处理响应数据包。
+
+    ```bash
+    iptables -I FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+    ```
+
+#### 测试与验证
+
+- 从内部网络访问外部网络：确保内部网络主机 C 能够成功访问外部主机 A 的 Web 服务和 SSH 服务。
+- 从外部网络访问内部网络：根据实际需求决定是否开放外部网络访问内部网络服务的权限，并相应地调整 iptables 规则。
+
+### 7.12 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

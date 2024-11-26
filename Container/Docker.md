@@ -42,7 +42,10 @@
 mkdir /etc/docker
 cat <<EOF >  /etc/docker/daemon.json
 {
-  "registry-mirrors": [ "https://1ecf599359e64520bd04701e6d7184e8.mirror.swr.myhuaweicloud.com" ]
+  "registry-mirrors": [ 
+	"https://1ecf599359e64520bd04701e6d7184e8.mirror.swr.myhuaweicloud.com",
+	"https://le2c3l3b.mirror.aliyuncs.com"
+  ]
 }
 EOF
 ```
@@ -54,7 +57,10 @@ mkdir /etc/docker
 cat <<EOF >  /etc/docker/daemon.json
 {
   "exec-opts": ["native.cgroupdriver=systemd"],
-  "registry-mirrors": [ "https://1ecf599359e64520bd04701e6d7184e8.mirror.swr.myhuaweicloud.com" ]
+  "registry-mirrors": [ 
+	"https://1ecf599359e64520bd04701e6d7184e8.mirror.swr.myhuaweicloud.com",
+	"https://le2c3l3b.mirror.aliyuncs.com"
+  ]
 }
 EOF
 ```

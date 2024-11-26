@@ -153,6 +153,8 @@ spec:
       labels:
         k8s-app: metrics-server
     spec:
+      # 使 Pod 使用主机网络
+      hostNetwork: true
       containers:
       - args:
         - --cert-dir=/tmp
@@ -197,6 +199,22 @@ spec:
           name: tmp-dir
       nodeSelector:
         kubernetes.io/os: linux
+      affinity:
+      	nodeAffinity:
+      	  requiredDuringSchedulingIgnoredDuringExecution:
+      	    nodeSelectorTerms:
+      	    - matchExpressions:
+      	        # 不要调度到 edge 节点
+      	      - key: node-role.kubernetes.io/edge
+      	        operator: DoesNotExist
+      	        # 指定，必须调度到主节点
+      	      - key: node-role.kubernetes.io/control-plane
+      	      	operator: Exists
+      # 添加主节点的容忍
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
       priorityClassName: system-cluster-critical
       serviceAccountName: metrics-server
       volumes:
@@ -245,4 +263,8 @@ spec:
 ### 1.3 总结
 
 在 Kubernetes 集群中部署 Metrics Server 可以实现对集群中各种资源的实时监控和度量指标收集，从而帮助管理员和开发人员更好地管理和优化 Kubernetes 应用程序的性能。
+
+
+
+
 
