@@ -458,6 +458,12 @@ nginx   1/1     Running   0          5s    192.168.100.151   edge1   <none>     
       edgeStream:
         # 修改的是这里
         enable: true
+    
+    # 还有一个要配置的东西，虽然这里不是必须的，但是之后要用，所以就配置上
+    # 找到 quic.enable，修改为 true
+        quic:
+          # 修改的是这里
+          enable: true
     ```
 
 6. 之后重启 cloudcore 和 edgecore：
@@ -552,8 +558,6 @@ nginx   1/1     Running   0          5s    192.168.100.151   edge1   <none>     
     node1    25m          0%     552Mi           15%       
     node2    22m          0%     492Mi           13%  
     ```
-
-
 
 
 

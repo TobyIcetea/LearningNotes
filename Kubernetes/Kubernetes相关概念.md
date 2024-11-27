@@ -1138,7 +1138,200 @@ iptables -X WEB  # 删除自定义链
 - 从内部网络访问外部网络：确保内部网络主机 C 能够成功访问外部主机 A 的 Web 服务和 SSH 服务。
 - 从外部网络访问内部网络：根据实际需求决定是否开放外部网络访问内部网络服务的权限，并相应地调整 iptables 规则。
 
-### 7.12 
+### 7.12 动作总结（1）
+
+iptables 不仅提供强大的数据包过滤功能，还允许我们对匹配到的数据包执行各种动作。这些动作可以分为基础动作和扩展动作。
+
+#### 基础动作
+
+- ACCEPT - 允许数据包通过。
+- DROP - 丢弃数据包，不发送任何相应信息给发送方。
+
+#### 扩展动作
+
+- REJECT - 拒绝数据包，并向发送方发送一个拒绝信息。REJECT 是一个扩展动作，它允许你指定拒绝类型，例如：
+
+    - `--reject-with icmp-net-unreachable` - 网络不可达
+    - `--reject-with icmp-host-unreachable` - 主机不可达
+    - `--reject-with icmp-port-unreachable` - 端口不可达
+    - `--reject-with icmp-proto-unreachable` - 协议不可达
+    - `--reject-with icmp-net-prohibited` - 网络禁止访问
+    - `--reject-with icmp-host-prohibited` - 主机禁止访问
+    - `--reject-with icmp-admin-prohibited` - 管理员禁止访问
+
+    如果没有明确设置 `--reject-with` 的值，默认使用的是 `icmp-port-unreachable`。
+
+#### 实践示例
+
+假设我们要阻止所有来自特定 IP 地址的数据包并告知对方主机不可达，我们可以使用如下规则：
+
+```bash
+iptables -A INPUT -s 192.168.1.100 -j REJECT --reject-with icmp-host-unreachable
+```
+
+这条命令会添加一条规则到 INPUT 链，对于源 IP 为 192.168.1.100 的所有数据包，将它们拒绝并向发送者返回 ICMP 主机不可达的消息。
+
+#### LOG 动作
+
+- LOG - 记录符合条件的数据包的相关信息到日志文件中。LOG 动作本身并不改变数据包的状态，它只是记录下数据包的信息。之后你可以根据需要定义额外的规则来处理这些数据包。
+
+#### LOG 动作选项
+
+- `--log-level <level>` - 设置日志级别，如 warning、info 等。
+- `--log-prefix "<prefix>"` - 给日志条目添加前缀，方便识别。
+
+#### 实践示例
+
+要记录所有尝试连接到 SSH 端口（22）的数据包，可以使用如下规则：
+
+```bash
+iptables -A INPUT -p tcp -dport 22 -j LOG --log-prefix "SSH-Attempt: "
+```
+
+此规则会将所有目的地为 SSH 端口 22 的数据包的信息记录下来，并在日志条目前加上 "SSH-Attempt" 作为标识。
+
+为了确保日志信息不会与系统其他日志混淆，可以通过修改 rsyslog 配置文件来定向日志输出到特定文件：
+
+```bash
+# /etc/rsyslog.conf
+kern.warning /var/log/iptables.log
+```
+
+重启 rsyslog 服务后，相关的 iptables 日志会被记录到 `/var/log/iptables.log` 中。
+
+### 7.13 动作总结（2）
+
+我们继续深入探讨 iptables 中的几个关键动作：SNAT、DNAT、MASQUEARDE 和 REDIRECT。这些动作对于实现网络地址转换（NAT）至关重要，允许我们对数据包的源地址或目标地址进行修改，从而实现流量的控制与转发。
+
+#### 网络地址转换（NAT）
+
+NAT（Network Address Translation）是一种将一个 IP 地址空间映射到另一个 IP 地址空间的技术。它通常用于隐藏内部网络结构，并允许多台设备共享一个公共 IP 地址访问互联网。NAT 有两种主要类型：源地址转换（SNAT）和目标地址转换（DNAT）。
+
+- SNAT（Source NAT）：当内部网络的主机向外部发送数据时，其源 IP 地址会被替换为防火墙或路由器的公网 IP 地址。
+- DNAT（Destination NAT）：当外部网络的数据发往内部网络时，其目标 IP 地址会被替换为内部网络中的某台主机的实际私有 IP 地址。
+
+#### SNAT 示例
+
+假设公司局域网使用的是 10.1.0.0/16 网段，但只有一个公网 IP（例如 192.168.1.146）。为了使局域网内的所有主机都能访问互联网，我们需要配置 SNAT 规则：
+
+```bash
+iptables -t nat -A POSTROUTING -s 10.1.0.0/16 -j SNAT --to-source 192.168.1.146
+```
+
+这条命令的作用是，当来自 10.1.0.0/16 网段的数据包经过 POSTROUTING 链时，它们的源 IP 地址将被改为 192.168.1.146，这样外部网络就只能看到这个公网 IP，而看不到内网主机的真实 IP。
+
+#### MASQUERADE
+
+如果公司的公网 IP 不是固定的而是通过动态分配获得的（如拨号上网），那么每次 IP 变更后都需要手动更新 SNAT 规则，这显然不够方便。MASQUERADE 解决了这个问题，它会自动地将数据包的源 IP 设置为当前有效的公网 IP 地址：
+
+```bash
+iptables -t nat -A POSTROUTING -s 10.1.0.0/16 -o eth0 -j MASQUERADE
+```
+
+这里，`-o eth0` 指定了出口接口，确保只有通过 eth0 接口出去的数据包才会被处理。
+
+#### DNAT 示例
+
+假如公司想让外部用户能够访问位于局域网内的 web 服务器（IP：10.1.0.5，port：80），可以通过以下 DNAT 规则来实现：
+
+```bash
+iptables -t nat -I PREROUTING -d 192.168.1.146 -p tcp --dport 80 -j DNAT --to-destination 10.1.0.5:80
+```
+
+此规则表示，凡是目标地址为 192.168.1.146 且端口为 80 的数据包，都将被重定向至 10.1.0.5 的 80 端口。
+
+#### REDIRECT
+
+REDIRECT 是一个特殊的 DNAT 形式，用于将数据包的目标端口重定向到本地机器上的不同端口。比如，将到达本机 80 端口的请求重定向到 8080 端口。
+
+```bash
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 8080
+```
+
+### 7.14 小结之常用套路
+
+在之前的笔记中，我们已经探讨了 IPTABLES 的许多方面。现在是时候回顾一下，并总结一下常用的配置策略和技巧了。这些被称为“常用套路”。掌握这些套路能够帮助我们更高效地使用 IPTABLES。
+
+#### 规则顺序的重要性
+
+规则顺序的排列顺序非常关键。一旦报文被某条规则匹配并执行了相应的动作（如 ACCEPT 或 REJECT），后续的规则将不再对该报文产生影响（除非前面的动作是 LOG）。因此，对于相同的服务而言，应先把更严格的规则放在前面。例如，如果有一条规则允许所有来自特定 IP 的流量，而另一条规则拒绝所有其他流量，那么必须确保允许规则先于拒绝规则，以避免错误拦截合法流量。
+
+举例：
+
+```bash
+# 允许特定 IP 访问 SSH 服务
+iptables -A INPUT -p tcp --dport 22 -s 192.168.1.100 -j ACCEPT
+# 拒绝所有其他到 SSH 端口的连接
+iptables -A INPUT -p tcp --dport 22 -j DROP
+```
+
+#### 多条件匹配遵循“与”逻辑
+
+当一条规则包含多个匹配条件时，默认情况下，这些条件之间存在逻辑上的“与”关系。这意味着报文只有同时满足该规则中的所有条件才会被匹配。
+
+例子：
+
+```bash
+# 仅允许来自 192.168.1.0/24 网段且网络端口为 80 的 TCP 数据包
+iptables -A INPUT -p tcp =s 192.168.1.0/24 --dport 80 -j ACCEPT
+```
+
+#### 高频匹配规则优先
+
+在没有特殊顺序要求的情况下，应该把那些更容易被出发的规则排在前面。比如，如果 Web 服务比 SSH 服务接受更多的请求，则应将针对 Web 服务的规则置于 SSH 服务的规则之前，以减少不必要的处理开销。
+
+例子：
+
+```bash
+# 首先处理改频的 Web 流量
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+# 然后处理较低频的 SSH 流量
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+```
+
+#### 考虑双向流量
+
+当 iptables 用作网络防火墙时，不仅要考虑从外部到内部的流量控制，还要考虑内部到外部的数据流。这有助于全面保护网络安全。
+
+例子：
+
+```bash
+# 允许内网主机访问外网
+iptables -A OUTPUT -o eth0 -j ACCEPT
+# 限制外网对内网某些服务的访问
+iptables -A INPUT -i eth0 -p tcp --dport 22 -m state --state NEW -j DROP
+```
+
+#### 白名单机制的实现
+
+创建白名单时，通常会设置链的默认策略为 ACCEPT，然后通过添加具体的 REJECT 规则来定义例外情况。这样即使链中的规则被意外清空，也不会导致管理员自己也被封锁在外。
+
+例子：
+
+```bash
+# 设置 INPUT 链默认策略为接受
+iptables -P INPUT ACCEPT
+# 添加具体拒绝策略
+iptables -A INPUT -p tcp --dport 22 -j REJECT
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
