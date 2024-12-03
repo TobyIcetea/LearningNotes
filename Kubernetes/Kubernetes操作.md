@@ -264,6 +264,30 @@ spec:
 
 在 Kubernetes 集群中部署 Metrics Server 可以实现对集群中各种资源的实时监控和度量指标收集，从而帮助管理员和开发人员更好地管理和优化 Kubernetes 应用程序的性能。
 
+## 2. 消除 master 节点的污点
+
+使用命令
+
+```bash
+kubectl describe node master
+```
+
+可以看到 master 节点是带有污点的：
+
+```bash
+Taints:             node-role.kubernetes.io/control-plane:NoSchedule
+```
+
+可以使用如下命令消除这个污点：
+
+```bash
+kubectl taint nodes master node-role.kubernetes.io/control-plane:NoSchedule-
+```
+
+
+
+
+
 
 
 
