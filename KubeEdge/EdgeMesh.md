@@ -37,16 +37,14 @@ cd edgemesh
 
 ```bash
 kubectl apply -f build/crds/istio/
-customresourcedefinition.apiextensions.k8s.io/destinationrules.networking.istio.io created
-customresourcedefinition.apiextensions.k8s.io/gateways.networking.istio.io created
-customresourcedefinition.apiextensions.k8s.io/virtualservices.networking.istio.io created
 ```
 
 在主节点上执行如下命令，生成 PSK 密码：
 
 ```bash
 openssl rand -base64 32
-Ew+L5Fp8oNiHoVscacpPLIjcZraiCzby095PqHHDXv0=
+
+ipry+IJSNXtgAjtX3nwWVzQ8Vud7uYefsAhqwHaEO0M=
 ```
 
 将生成的 PSK 密码写进 configmap 的 yaml 文件中：
@@ -128,7 +126,26 @@ hostname-edge-5cd75b689f-4gxhp（输出 pod 的名称）
 
 ### 2.5 WebSocket
 
-> 跑不动
+部署支持 websocket 协议的容器应用和相关服务：
+
+```bash
+kubectl apply -f examples/websocket.yaml
+```
+
+进入测试容器，并使用 websocket `client` 去访问相关服务：
+
+```bash
+kubectl exec -it websocket-test -- sh
+```
+
+在容器环境内：
+
+```bash
+/ # ./client --addr ws-svc:12348
+connecting to ws://ws-svc:12348/echo
+recv: 2024-12-03 08:27:03.005461494 +0000 UTC m=+1.008959225
+recv: 2024-12-03 08:27:04.005407905 +0000 UTC m=+2.008905544
+```
 
 ### 2.6 UDP
 
@@ -202,6 +219,148 @@ With IP address 10.244.0.8.
 Service default.
 
 ```
+
+## 3. 边缘网关
+
+EdgeMesh 的边缘网关提供了通过网关的方式访问集群内部服务的能力，本章节会指导您从头部署一个边缘网关。
+
+![edgemesh-ingress-gateway](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/em-ig.png)
+
+在部署边缘网关之前请确保 edgemesh 已经部署成功。
+
+### 3.1 手动部署
+
+首先重新生成 PSK 密码：
+
+```bash
+[root@master edgemesh]# openssl rand -base64 32
+adEn2jJhFfBKg5qSVA7PcvlS5XE34kpzSwgpdMzbqTA=
+```
+
+之后将 PSK 密码写进 04-deployment.yaml 文件里面：
+
+```bash
+vim build/gateway/resources/04-configmap.yaml
+# 之后在最后的 data.psk 部分，修改为上一步 openssl 生成的 PSK 密码
+```
+
+设置 05-deployment.yaml 中的 nodeName：
+
+```bash
+vim build/gateway/resources/05-deployment.yaml
+# 之后将其中的 nodeName 修改为某一个边缘节点的名字（edge1、edge2）
+# 之后网关服务就会部署到这个节点上
+```
+
+之后就部署即可：
+
+```bash
+kubectl apply -f build/gateway/resources
+```
+
+### 3.2 HTTP 网关
+
+创建 Gateway 资源对象和路由规则 VirtualService：
+
+```bash
+kubectl apply -f examples/hostname-lb-random-gateway.yaml
+```
+
+查看 edgemesh-gateway 是否创建成功：
+
+```bash
+[root@master edgemesh]# kubectl get gw
+NAME               AGE
+edgemesh-gateway   66s
+```
+
+最后，使用 IP 和 Gateway 暴露的端口来进行访问：
+
+```bash
+[root@edge1 ~]# curl 192.168.100.151:23333
+curl: (52) Empty reply from server
+```
+
+## 4. EdgeMesh 安全配置
+
+EdgeMesh 具备很高的安全性，首先 edgemesh-agent（包括 edgemesh-gateway）之间的通讯默认是加密传输的，同时通过 PSK 机制保障身份认证与连接准入。PSK 机制确保每个 edgemesh-agent（包括 edgemesh-gateway）只有当拥有相同的“PSK 密码”时才能建立连接。
+
+### 4.1 生成 PSK 密码
+
+生成 PSK 密码，可以通过下方命令生成一个随机字符串用作 PSK 密码，你也可以自定义一个字符串用作 PSK 密码：
+
+```bash
+[root@master edgemesh]# openssl rand -base64 32
+adEn2jJhFfBKg5qSVA7PcvlS5XE34kpzSwgpdMzbqTA=
+```
+
+### 4.2 使用 PSK 密码-手动配置
+
+手动部署 EdgeMesh 时，直接编辑 `build/agent/resources/04-configmap.yaml` 里的 psk 值即可。
+
+手动部署 EdgeMesh-GateWay 时，直接编辑 `build/gateway/resources/04-configmap.yaml` 里的 psk 值即可。
+
+## 5. SSH 代理隧道
+
+EdgeMesh 的 SSH 代理提供了节点之间通过代理进行 SSH 登录访问的能力，本章节会对此功能进行详细介绍。
+
+### 5.1 SSH 代理工作原理
+
+![edgemesh-socks5-proxy](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/em-sock5.png)
+
+1. 客户端通过代理发起远程登陆请求，六俩个将会被转发到代理服务中。
+2. 在代理服务器中解析目的主机名和端口，将其转换成远程服务器 IP 地址。
+3. 通过原有 Tunnel 模块中的 P2P 打洞功能将流量转发至目标机器。
+4. 通道建立后对远端流量的响应返回给 SSH 客户端，完成通道建立。
+
+### 5.2 手动配置
+
+生成 PSK 密码：
+
+```bash
+[root@master edgemesh]# openssl rand -base64 32
+pbLSkdVtf+j2+9h6JXZ22toOMssEHU1mmQeDz4SP+OE=
+```
+
+修改 04-configmap.yaml 文件：
+
+```bash
+vim build/agent/resources/04-configmap.yaml
+# 1. 修改最后的 psk 密码
+# 2. 在 edgeProxy 中加入 sock5Proxy
+      edgeProxy:
+        enable: true
+        # 加入的是这里
+        socks5Proxy:
+          enable: true
+```
+
+重新启动 edgemesh-agent：
+
+```bash
+kubectl rollout restart daemonset edgemesh-agent -n kubeedge
+```
+
+### 5.3 使用
+
+由于节点的 IP 可能重复，所以只支持通过节点名称进行连接。
+
+```bash
+# 修改的时候就修改最后的节点名字就可以了
+ssh -o "ProxyCommand nc --proxy-type socks5 --proxy 169.254.96.16:10800 %h %p" root@edge1
+```
+
+## 6. 边缘 Kube-API 端点
+
+[KubeEdge操作.md——边缘 Kube-API 端点](./KubeEdge操作.md##1.-部署-Kube-API-端点)
+
+
+
+
+
+
+
+
 
 
 

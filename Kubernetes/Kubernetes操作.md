@@ -284,6 +284,58 @@ Taints:             node-role.kubernetes.io/control-plane:NoSchedule
 kubectl taint nodes master node-role.kubernetes.io/control-plane:NoSchedule-
 ```
 
+## 3. Pod 控制器重启
+
+在 Kubernetes 中，控制器用于管理一组 Pod 的生命周期。为了保持高可用性，Kubernetes 提供了几种方法来重启这些控制器管理的 Pod，其中 `kubectl rollout restart` 是最常用的方式。
+
+1. Deployment
+
+    命令：
+
+    ```bash
+    kubectl rollout restart deployment <deployment-name> -n <namespace>
+    ```
+
+    用途：重启 Deployment 管理的 Pod，按滚动更新的方式逐个重启，避免服务中断。
+
+2. DaemonSet
+
+    命令：
+
+    ```bash
+    kubectl rollout restart daemonset <daemonset-name> -n <namespace>
+    ```
+
+    用途：重启 Daemonset 管理的 Pod，通常在每个节点上都会有一个 Pod。
+
+3. ReplicaSet
+
+    命令：
+
+    ```bash
+    kubectl rollout restart replicaset <replicaset-name> -n <namespace>
+    ```
+
+    用途：虽然通常通过 Deployment 进行管理，但也可以直接对 ReplicaSet 进行重启。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
