@@ -4,6 +4,8 @@
 
 所以，还是决定回归老本行，通过刷 Leetcode 的方式，来提升自己对 Go 语言的熟悉程度。
 
+[TOC]
+
 ## 1. 两数之和（1）
 
 给定一个整数数组 `nums` 和一个整数目标值 `target`，请你在该数组中找出 **和为目标值** *`target`* 的那 **两个** 整数，并返回它们的数组下标。
@@ -12,9 +14,7 @@
 
 你可以按任意顺序返回答案。
 
-1.1 暴力枚举
-
-代码如下：
+暴力枚举解法：
 
 ```go
 func twoSum(nums []int, target int) []int {
@@ -39,7 +39,7 @@ func twoSum(nums []int, target int) []int {
     - `*int`：`int` 类型的指针
     - `[]int`：`int` 类型的数组
 
-1.2 哈希表
+哈希表解法：
 
 ```go
 func twoSum(nums []int, target int) []int {
@@ -705,6 +705,493 @@ nodeB 也是只有两种可能的变化，要么变为 nodeB 的 Next，要么�
 
 之前有的时候是求比 x 大的最小值的，这时候就要返回 left 才对。
 
+## 22. 罗马数字转整数（13）
+
+罗马数字包含以下七种字符: `I`， `V`， `X`， `L`，`C`，`D` 和 `M`。
+
+```go
+字符          数值
+I             1
+V             5
+X             10
+L             50
+C             100
+D             500
+M             1000
+```
+
+例如， 罗马数字 `2` 写做 `II` ，即为两个并列的 1 。`12` 写做 `XII` ，即为 `X` + `II` 。 `27` 写做 `XXVII`, 即为 `XX` + `V` + `II` 。
+
+通常情况下，罗马数字中小的数字在大的数字的右边。但也存在特例，例如 4 不写做 `IIII`，而是 `IV`。数字 1 在数字 5 的左边，所表示的数等于大数 5 减小数 1 得到的数值 4 。同样地，数字 9 表示为 `IX`。这个特殊的规则只适用于以下六种情况：
+
+- `I` 可以放在 `V` (5) 和 `X` (10) 的左边，来表示 4 和 9。
+- `X` 可以放在 `L` (50) 和 `C` (100) 的左边，来表示 40 和 90。 
+- `C` 可以放在 `D` (500) 和 `M` (1000) 的左边，来表示 400 和 900。
+
+给定一个罗马数字，将其转换成整数。
+
+```go
+func romanToInt(s string) int {
+    romanIntMap := map[rune]int {
+        'I': 1,
+        'V': 5,
+        'X': 10,
+        'L': 50,
+        'C': 100,
+        'D': 500,
+        'M': 1000,
+    }
+
+    res := 0
+    pre := romanIntMap[rune(s[0])]
+    for i := 1; i < len(s); i++ {
+        cur := romanIntMap[rune(s[i])]
+        if pre < cur {
+            res -= pre
+        } else {
+            res += pre
+        }
+        pre = cur
+    }
+    res += pre
+
+    return res
+}
+```
+
+原本最后一步我写的是：`res += romanIntMap[rune(s[len(s) - 1])`，然后我让 AI 看了看我的代码，它竟然能直接发现我最后这个计算是多余的，因为这个值已经算出来并且保存到 pre 中了。
+
+第一次写的时候，我尝试使用 `romanIntMap[s[i]]` 这种写法，但是报错了。后来一查，才知道，go 语言中对 byte 类型和 rune 类型区分的还是比较严格的。byte 是一个字节，而 rune 是一个 Unicode 码点，其实就是一个 Unicode 字符。一个字母是一个 Unicode 字符，一个汉字也是一个 Unicode 字符。
+
+而 go 中的 string 类型是用 byte 类型来存储其中的每一个值的。于是我创建了一个键值为 rune 的 map，然后传入的时候却使用的是 byte 类型，这样就不对了，会导致一个传入类型不匹配的错误。这时候就要使用 `rune()` 函数进行一个强制转换。
+
+除此之外，其实也有第二种解决方法：在定义 map 的时候，直接将 map 的键值定义为 byte 类型。这样之后在进行键值传入的时候，直接写 `romanIntMap[s[i]]` 也是可以的。因为这样就是 byte 对 byte，其中不会有 rune 的事儿。但是这样也会带来一个问题，那就是要确保 map 中的每一个键值都是 ASCII 字符（可以用一个字节来描述的）。如果 map 中我们定义了某一个汉字的键值对，这样就不行了。
+
+另外，虽然字符串是以 byte 进行存储的，但是如果我们需要使用 rune 类型的元素，也可以通过 range 来访问字符串中的元素。总结如下：
+
+```go
+s := "hello, 世界"
+
+// 按 byte 处理
+for i := 0; i < len(s); i++ {
+    fmt.Printf("byte: %c\n", s[i])
+}
+
+// 按 rune 处理
+for _, char := range s {
+    fmt.Printf("rune: %c\n", char)
+}
+```
+
+## 23. 杨辉三角（118）
+
+给定一个非负整数 *`numRows`，*生成「杨辉三角」的前 *`numRows`* 行。
+
+在「杨辉三角」中，每个数是它左上方和右上方的数的和。
+
+![img](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/1626927345-DZmfxB-PascalTriangleAnimated2.gif)
+
+```go
+func generate(numRows int) [][]int {
+    res := [][]int{}
+    
+    for i := 0; i < numRows; i++ {
+        // 每一行有 i + 1 个元素
+        arr := make([]int, i + 1)
+        arr[0] = 1
+        arr[i] = 1
+        for j := 1; j < i; j++ {
+            arr[j] = res[i - 1][j - 1] + res[i - 1][j]
+        }
+        res = append(res, arr)
+    }
+
+    return res
+}
+```
+
+做这个题目的时候，突然感觉想不起来之前数组切片的创建方式了。然后去查了一下才回忆起来。
+
+如果想要创建一个长度为 i 的切片，可以使用 make 函数：`arr := make([]int, i)`。
+
+但是 go 语言中，如果想要创建一个二维的 m 行 n 列的切片，并不像 C++ 中那么方便，还需要做一些额外的操作：
+
+```go
+// 比如说我们想要创建一个 m 行 n 列的切片
+m, n := 3, 4  // 3 行 4 列
+res := make([][]int, m)  // 创建一个长度为 m 的切片，此时其中每个元素都是 nil 切片
+
+for i := 0; i < m; i++ {
+    res[i] := make([]int, n)  // 给每一行分配长度为 n 的切片
+}
+```
+
+## 24. 二叉树的最大深度（104）
+
+给定一个二叉树 `root` ，返回其最大深度。
+
+二叉树的 **最大深度** 是指从根节点到最远叶子节点的最长路径上的节点数。
+
+```go
+func maxDepth(root *TreeNode) int {
+    if root == nil {
+        return 0
+    }
+    leftDepth := maxDepth(root.Left)
+    rightDepth := maxDepth(root.Right)
+    return max(leftDepth, rightDepth) + 1
+}
+```
+
+## 25. 验证回文串（125）
+
+如果在将所有大写字符转换为小写字符、并移除所有非字母数字字符之后，短语正着读和反着读都一样。则可以认为该短语是一个 **回文串** 。
+
+字母和数字都属于字母数字字符。
+
+给你一个字符串 `s`，如果它是 **回文串** ，返回 `true` ；否则，返回 `false` 。
+
+```go
+import (
+	"strings"
+	"unicode"
+)
+func isPalindrome(str string) bool {
+    runes := make([]rune, 0)
+    str = strings.ToLower(str)
+    for _, c := range str {
+        if unicode.IsDigit(c) || unicode.IsLetter(c) {
+            runes = append(runes, c)
+        }
+    }
+    left := 0
+    right := len(runes) - 1
+    for left < right {
+        if runes[left] != runes[right] {
+            return false
+        }
+        left++
+        right--
+    }
+
+    return true
+}
+```
+
+一开始做的时候是遇到了一些问题的。第一次我尝试创建一个 s1 字符串，之后每次找到合适的字符之后，就将这个字符使用一个 `append(s1, c)` 的操作加入进 s1 里面。
+
+但是后来就失败了，因为 go 语言中的字符串是不能进行修改的。`append()` 函数只能用于切片的操作。查了一下，Go 语言中，如果想要修改一个字符串，一般的我们选择的做法是：将字符串转换为切片，然后对切片就可以做：取值修改、加入元素之类的操作。
+
+除此之外，Go 语言中也有比较方便的判断数字和字母的方式，主要使用了 unicode 包中的东西：
+
+- `unicode.IsDigit(rune)`：可以判断一个 rune 类型的字符是不是数字。
+- `unicode.IsLetter(rune)`：可以判断一个 rune 类型的字符是不是字母。
+
+## 26. 快乐数（202）
+
+编写一个算法来判断一个数 `n` 是不是快乐数。
+
+**「快乐数」** 定义为：
+
+- 对于一个正整数，每一次将该数替换为它每个位置上的数字的平方和。
+- 然后重复这个过程直到这个数变为 1，也可能是 **无限循环** 但始终变不到 1。
+- 如果这个过程 **结果为** 1，那么这个数就是快乐数。
+
+如果 `n` 是 *快乐数* 就返回 `true` ；不是，则返回 `false` 。
+
+```go
+func isHappy(n int) bool {
+    happySet := make(map[int]bool)  // 存放所有已经过出现的数的集合
+    for n != 1 {
+        if happyMap[n] {
+            return false
+        }
+        happyMap[n] = true
+        num := 0  // 即将作为新的 n
+        for n != 0 {
+            digit := n % 10  // n 的最后一位数
+            num += digit * digit
+            n /= 10
+        }
+        n = num
+    }
+    return true
+}
+```
+
+一开始我陷入了一个误区：因为之前查询 map 的方式比较单一，所以我一直以为 go 中不好实现 HashSet，只能用 HashMap 来代替。但是这里让我有了一些新的认识。
+
+我们知道 go 中没有提供 set 的类型，只提供了 map 的类型。而在建立一个 map 的时候，需要指定 map 的 key 和 value 的类型。key 的类型好说，不过是 value 的类型这方面，就很容易让人犯难。实际上这里的 value 是“取什么都行”，但是如果能有一个确定的取值，那一定是比不确定要更好的。
+
+所以 go 中就可以这样做：在建立一个 set 的时候，就让 value 的类型为：bool。所有在集合中的元素，value 的类型都是 true。不在集合中的元素，就不在集合中。也就是说，只要是在 map 中的元素，它们的 value 都是为 true 的。
+
+这样做有什么好处呢？看下面的代码：
+```go
+if happySet[n] {
+    // ...
+}
+```
+
+这个语句很简单，它的功能是：判断 n 在不在 map 中。如果 n 在 map 中，就执行框框里面的语句。
+
+其中体现了 go 的一个 map 的特性：如果某一个键值对的值没有指定，那么默认是返回该值类型的“零元素”的。
+
+而 bool 类型的零元素就是 false。于是这就让【查询】的操作简化了很多。直接查找该键所对应的值，如果在就返回 true，如果不在就返回 false。
+
+这种判断的写法和之前的有一些不一样，这里我们把 map 和 set 的查询类型总结一下：
+
+```go
+// map
+if _, ok := mp[num]; ok {
+    // 在一个 map 中查询一个键值在不在
+}
+
+if value, ok := mp[num]; ok {
+    // 这种就是完成了两个操作：
+    // 一是可以判断 num 在不在集合中，二是可以查询 mp[num] 的值是多少
+}
+
+// set
+if mp[num] {
+    // 如果 num 在 map 中就如何如何
+}
+```
+
+然后是我做的一些其他的思考：
+
+**【命名上的考虑】**
+
+我们上面说了 go 中对于 set 和 map 这两种数据结构的不同：
+
+- set：在逻辑上是 set，在代码上是 map。
+- map：在逻辑上是 map，在代码上是 map。
+
+于是之后在命名 map 类型的变量的时候，变量名中加一个 map 这是理所应当，但是 set 的命名就比较让人犯难了。应该是称呼它为 set 呢，还是就按照语法来，叫它 map 呢？
+
+我们想一下我们给变量命名的动机是什么。如果我们想要的是让自己清楚代码的逻辑，就应该使用 set 来进行命名。如果我们想要看代码的时候可以看到数据结构的底层实现原理，那么就应该使用 map 来命名。这样看下来，set 才是更好的命名方式。
+
+只不过有时候在写代码的时候会比较奇怪。但是每次写的时候都能顺带回忆一下底层原理，那其实也挺不错的。
+
+**【会不会增加新元素的考虑】**
+
+我们知道在 C++ 里面，如果对于一个 map，直接使用 `map[num]` 的查询方式，会让 map 中新增加一个 `<num, 0>` 的映射（其中的 0 是广义的 0，就是 map 的 value 的数据类型的默认零值）。
+
+这不禁让我开始考虑：go 中会不会也有这样的特性，如果这样的话，在每一次进行 `mp[num]` 的查询的时候，都会给集合中添加一个 `<num, false>` 的键值对。这样是不行的。
+
+好在 go 不会这样。除非显式地添加元素。除此之外，只进行简单的查询，是不会给 map 中加入新的元素的。
+
+## 27. 翻转二叉树（226）
+
+给你一棵二叉树的根节点 `root` ，翻转这棵二叉树，并返回其根节点。
+
+```go
+func invertTree(root *TreeNode) *TreeNode {
+    if root == nil {
+        return nil
+    }
+    root.Left, root.Right = root.Right, root.Left
+    invertTree(root.Left)
+    invertTree(root.Right)
+    return root
+}
+```
+
+二叉树的题目基本都这样：
+
+- 先做递归的出口（一般是 root 为空的时候就如何如何）
+- 递归处理左边，递归处理右边
+- 左右结果合并、返回根节点
+
+## 28. 斐波那契数列（509）
+
+**斐波那契数** （通常用 `F(n)` 表示）形成的序列称为 **斐波那契数列** 。该数列由 `0` 和 `1` 开始，后面的每一项数字都是前面两项数字的和。也就是：
+
+```
+F(0) = 0，F(1) = 1
+F(n) = F(n - 1) + F(n - 2)，其中 n > 1
+```
+
+给定 `n` ，请计算 `F(n)` 。
+
+```go
+func fib(n int) int {
+    if n == 0 {
+        return 0
+    }
+    pre := 0
+    cur := 1
+    for i := 2; i <= n; i++ {
+        pre, cur = cur, pre + cur
+    }
+    return cur
+}
+```
+
+在其中的 `pre, cur = cur, pre + cur` 部分用到了 go 的一个特性：多重赋值。
+
+我们想一下如果在传统的编程语言（如 C++）中，这种操作应该怎么做：
+
+```c++
+int temp = pre;
+pre = cur;
+cur = temp + cur;
+```
+
+如果不借助一个额外的变量，这个赋值操作是无法完成的。但是 go 语言通过多重赋值，让代码的逻辑更简单了。
+
+## 29. 加一（66）
+
+给定一个由 **整数** 组成的 **非空** 数组所表示的非负整数，在该数的基础上加一。
+
+最高位数字存放在数组的首位， 数组中每个元素只存储**单个**数字。
+
+你可以假设除了整数 0 之外，这个整数不会以零开头。
+
+第一版代码：反转数组
+
+```go
+func plusOne(digits []int) []int {
+    reverse(digits)
+    // 从前往后一直找 9，找到的每一个 9 都变为 0
+    // 第一个不是 9 的数字 +1
+    // 如果每一位都是 9，那最后就要再额外加上一个 1
+    index := 0
+    for index < len(digits) && digits[index] == 9 {
+        digits[index] = 0
+        index++
+    }
+    if index < len(digits) {
+        digits[index] += 1
+    } else {
+        digits = append(digits, 1)
+    }
+    reverse(digits)
+    return digits
+}
+
+func reverse(nums []int) {
+    left := 0
+    right := len(nums) - 1
+    for left < right {
+        nums[left], nums[right] = nums[right], nums[left]
+        left++
+        right--
+    }
+}
+```
+
+这样的逻辑是对的。为什么其中我要反转一下数组呢？因为如果切片中存在的所有数字都是 9，那就需要在切片头部加上一个 1。在 C++ 这样的编程语言中，在数组的头部加上元素可是大忌。我们一般都推崇尾插法，头插法会让程序的性能受到很大影响。
+
+但是后来通过和 AI 交流，我发现 Go 中也可以使用头插法。代码可以这样写：
+
+```go
+func plusOne(digits []int) []int {
+    index := len(digits) - 1
+    for index >= 0 && digits[index] == 9 {
+        digits[index] = 0
+        index--
+    }
+    if index >= 0 {
+        digits[index] += 1
+    } else {
+        digits = append([]int{1}, digits...)
+    }
+    return digits
+}
+```
+
+go 语言中的 append 方法好像是 go 的什么内部实现的，有一个内存分配和切片扩展机制，反正 append 的性能很高就是了。
+
+## 30. 二进制求和（67）
+
+给你两个二进制字符串 `a` 和 `b` ，以二进制字符串的形式返回它们的和。
+
+```go
+
+func addBinary(a string, b string) string {
+    result := ""
+    carry := 0
+
+    // 将 a 和 b 从尾部开始遍历
+    i, j := len(a) - 1, len(b) - 1
+    for i >= 0 || j >= 0 || carry != 0 {
+        x := 0
+        if i >= 0 {
+            x = int(a[i] - '0')
+            i--
+        }
+        y := 0
+        if j >= 0 {
+            y = int(b[j] - '0')
+            j--
+        }
+        sum := x + y + carry
+        result = string(rune(sum % 2) + '0') + result
+        carry = sum / 2
+    }
+
+    return result
+}
+```
+
+实际上一开始做这个题目的时候，费了一些时间没做出来。是因为对 go 语言中字符和数字之间进行转换的底层原理不太清楚了。之前用 C++ 的时候，这部分知识掌握得挺好的，对底层摸得也挺清楚的。后来好像是用 python 还是什么，对函数封装得有点多，让我对底层知识慢慢模糊了。今天再处理 go 的时候，直接晕头转向了，心里面知道自己的想法是啥，但是实现出来老是不对。
+
+实际上 go 在这一块儿做的还是比较底层的，类似于 C++ 中的处理方式。如果是数字直接和字符进行计算，是可以计算的，不过是转换成 ASCII 码进行计算。也就是说，数字 `1` 和字符 `'1'` 是不一样的。数字 1 就是 1，但是字符 `'1'` 的 ASCII 码是 49。
+
+但是跟 C++ 里面有所不同的一点是：`'1'` 在 C++ 中是一个 char 类型的数据，占用一个字节。但是 go 语言中，这是一个 `rune` 类型的数据。`rune` 的意思是字符，从底层来看，`rune` 真实的类型是 `int32`。
+
+那么 Go 语言中，既然有了 `int` 了，为什么还需要 `int32` 呢？实际上 `int` 和 `int32` 还是有区别的。在 C++ 中，我们都知道 `int` 就是 32 位的。但是 Go 中，`int` 的实际位数是会根据机器的属性而发生变化的。如果是 32 位系统，`int` 的大小就是 4 字节；如果是 64 位系统，`int` 的大小就是 8 字节。
+
+可以通过下面的程序来判断自己的系统中 `int` 的位数：
+
+```go
+func main() {
+	num := 1
+	fmt.Printf("The size of 'int' is: %d bytes (%d bits)\n", unsafe.Sizeof(num), unsafe.Sizeof(num)*8)
+}
+// 输出：The size of 'int' is: 8 bytes (64 bits)
+```
+
+这时候我们看一下这个题目中遇到的一个警告：`string(sum % 2 + '0')` 爆出警告了。为什么呢？因为 `sum % 2` 是 `int` 类型的（8 位），而后面的 `'0'` 是 `rune`（`int32`）类型的。本着“包容”的原则，计算出来的数值应该是 `int` 类型的（8 bytes）。
+
+我们知道 `string()` 函数的作用是传入一些参数，然后将传入的参数转换为 `string` 的形式。然后我们想想，`string()` 函数需要的参数最好是什么呢？或者说，既然 byte、rune、int 这些参数都可以作为 `string()` 函数的参数，那么其中哪几种是 `string()` 最喜欢的呢？
+
+一般，我们推荐给 `string()` 传入这几种参数：`byte`、`[]byte`、`rune`、`[]rune`。
+
+除此之外的 `int` 和 `float64` 之类的，即使有时候能跑起来，我们也极其不推荐这样做。
+
+- `int` 转换为字符串：如果传入的是 `int` 类型，`string()` 会将该整数转换为一个对应的字符（基于 Unicode 或者 ASCII），而不是数字字符。
+
+    ```go
+    i := 65
+    fmt.Println(string(i))  // 输出：A（65 对应 ASCII 字符 'A'）
+    j := 1000
+    fmt.Println(string(j))  // 输出：相当于 Unicode 字符 'Ϩ'（1000 的 Unicode 字符）
+    ```
+
+- `float64` 转换为字符串：与 `int` 类似，`float64` 转换为字符串也不符合预期。
+
+    ```go
+    f := 65.5
+    fmt.Println(string(f))
+    // 编译报错：Cannot convert an expression of the type 'float64' to the type 'string'
+    ```
+
+然后我们再回到这个题目，所以我们在计算的时候，直接使用 `string(sum % 2 + '0')`，虽然我们的数字很小，确保了我们执行不会报错，但是还是会爆出警告：不推荐这样做。解决方法，我想到两个：
+
+- `string(rune(sum % 2) + '0')`：rune 类型和 rune 类型的数据相加，最后得到一个 rune 类型的结果，然后再将这个 rune 类型的数据转换为 string。特别的舒服。
+- `string(rune(sum % 2 + '0'))`：rune 类型和 int 类型的数据相加，得到一个 int 类型。再将这个 int 类型转换为 rune 类型之后，传给 string() 函数，也不错。
+
+其实如果想要将 int 类型的数据转换为 string 类型的数据，还有另外一种方式，那就是直接使用 `strconv` 包里面的工具。`strconv` 包里面比较常用的有以下几个函数：
+
+- **`strconv.Itoa()`——整数转字符串。**
+- **`strconv.Atoi()`——字符串转整数。**
+- `strconv.FormatInt()`——整数转字符串（指定进制）。
+- `strconv.ParseInt()`——字符串转整数（指定进制）。
+
+这种方式更简单，跟前面哪种方法比起来，相当于是对底层又做了一层封装。实际上就是用两种方式来解决这个题目：是通过底层原理直接计算呢，还是通过封装好的 API 进行转换呢？
+
+应该是这样：掌握好封装的 `strconv` 方式可以减少很多工作的难度，但是打好扎实的底层基础也是很有必要的。
 
 
 
@@ -713,29 +1200,6 @@ nodeB 也是只有两种可能的变化，要么变为 nodeB 的 Next，要么�
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-待做的题目：
-
-13、118、104
-
-125、202、226、509、66、67、459、746、94、234、1047、349
-
-543、108、203、110、392、344、387、144、415、2413、100、977、541
 
 
 
