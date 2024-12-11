@@ -155,6 +155,74 @@ func inorderTraversal(root *TreeNode) []int {
 
 `append()` 函数的返回值也是一个和原本 slice 相同的 slice，再通过 `right...` 来表示 right 切片中的所有元素。通过链式编程，将左、中、右的结果串联在一起，构成最后的答案。
 
+## 34. 回文链表（234）
+
+给你一个单链表的头节点 `head` ，请你判断该链表是否为回文链表。
+
+如果是，返回 `true` ；否则，返回 `false` 。
+
+我一开始写了一个代码，我写的思路是：将链表的后半部分进行反转，然后判断前半部分和后半部分是否是一样的。但是写的时候改了好几个错，给代码打了好几个补丁。后来问了问 AI，发现我的代码有两个可以改进的地方：
+
+- 实际上不需要遍历完一次之后，再去反转后半部分的链表。我们可以选择慢走一次就反转一个，这样快指针走到结尾的时候，慢指针负责的前半部分也已经反转好了。之后我们就得到了两个链：一个是 slow 开头的后半部分的链，一个是 pre 开头的前半部分的链。
+- 使用 fast 和 slow 控制快慢指针，有一个比较难控制的问题就是，链表有奇数个节点和偶数个节点的时候，遇到的情况是不同的。往往要在这里做一些思考和判断。但是今天发现还有一种判断方法：我们知道 fast 指针是一次走两步的，那么**循环停止的时候，如果 fast 指针是空，就说明有偶数个节点；如果 fast 指针不是空，就说明有奇数个节点。**
+
+修改之后的代码如下：
+
+```go
+func isPalindrome(head *ListNode) bool {
+    if head.Next == nil {
+        return true
+    }
+    fast := head
+    slow := head
+    var pre *ListNode
+    for fast != nil && fast.Next != nil {
+        fast = fast.Next.Next
+        next := slow.Next
+        slow.Next = pre
+        pre, slow = slow, next
+    }
+    
+    // 如果 fast 是 nil，就说明有偶数个节点
+    // 如果 fast 不是 nil，就说明有奇数个节点
+    // slow 及 slow 之后的，都是原本的链表，pre 以及 pre 之前的，都是被反转后的链表
+    if fast != nil {
+        slow = slow.Next
+    }
+
+    for slow != nil {
+        if slow.Val != pre.Val {
+            return false
+        }
+        slow = slow.Next
+        pre = pre.Next
+    }
+    return true
+}
+```
+
+## 35. 删除字符串中的所有相邻重复项（1047）
+
+给出由小写字母组成的字符串 `s`，**重复项删除操作**会选择两个相邻且相同的字母，并删除它们。
+
+在 `s` 上反复执行重复项删除操作，直到无法继续删除。
+
+在完成所有重复项删除操作后返回最终的字符串。答案保证唯一。
+
+```go
+func removeDuplicates(s string) string {
+    stack := make([]rune, 0)
+    for _, c := range s {
+        if len(stack) == 0 || stack[len(stack) - 1] != c {
+            stack = append(stack, c)
+        } else {
+            stack = stack[:len(stack) - 1]
+        }
+    }
+    return string(stack)
+}
+```
+
 
 
 
@@ -167,7 +235,13 @@ func inorderTraversal(root *TreeNode) []int {
 
 待做的题目：
 
-94、234、1047、349
+349
 
 543、108、203、110、392、344、387、144、415、2413、100、977、541
+
+
+
+
+
+
 
