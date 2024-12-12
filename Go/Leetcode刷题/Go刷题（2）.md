@@ -223,6 +223,654 @@ func removeDuplicates(s string) string {
 }
 ```
 
+## 36. 两个数组的交集（349）
+
+给定两个数组 `nums1` 和 `nums2` ，返回它们的交集。输出结果中的每个元素一定是 **唯一** 的。我们可以 **不考虑输出结果的顺序** 。
+
+```go
+func intersection(nums1 []int, nums2 []int) []int {
+    // 先建立两个哈希表
+    set1 := make(map[int]bool)
+    set2 := make(map[int]bool)
+    for _, num := range nums1 {
+        set1[num] = true
+    }
+    for _, num := range nums2 {
+        set2[num] = true
+    }
+    
+    var res []int
+    
+    var more map[int]bool
+    var less map[int]bool
+    if len(set1) > len(set2) {
+        more, less = set1, set2
+    } else {
+        more, less = set2, set1
+    }
+    
+    for num, _ := range less {
+        if more[num] {
+            res = append(res, num)
+        }
+    }
+
+    return res
+}
+```
+
+## 37. 二叉树的直径（543）
+
+给你一棵二叉树的根节点，返回该树的 **直径** 。
+
+二叉树的 **直径** 是指树中任意两个节点之间最长路径的 **长度** 。这条路径可能经过也可能不经过根节点 `root` 。
+
+两节点之间路径的 **长度** 由它们之间边数表示。
+
+先看一版代码：
+
+```go
+var maxDiameter int
+
+func diameterOfBinaryTree(root *TreeNode) int {
+    getHeight(root)
+    return maxDiameter
+}
+
+func getHeight(root *TreeNode) int {
+    if root == nil {
+        return 0
+    }
+    left := getHeight(root.Left)
+    right := getHeight(root.Right)
+    maxDiameter = max(maxDiameter, left + right)
+    return max(left, right) + 1
+}
+```
+
+这个代码的功能几乎是没啥错的。但是，在提交的时候，还是报出错误了。而且错误的原因让我百思不得其解。有一个测试案例的结果应该是 1，我甚至使用了 debug，在提交之前先查看了 maxDiamater 的值，发现是 1，但是平台上显示的一直都是我提交的是 3。
+
+后来推测这是 Leetcode 内部的一个 bug，问题可能是因为 Leetcode 错误地共享了不同案例中地 maxDiameter。后来通过查阅资料，又了解到 go 语言中的一个特性，那就是：尽量少使用全局变量。
+
+因此，不管 Leetcode 的问题了，我还是有必要将自己的代码改进一下的。这一次就不会使用全局变量了。
+
+我想到了两种改进的方法：
+
+- 将 maxDiameter 设置为主函数中的普通变量，然后在 getHeight 函数中，将 maxDiameter 以一个引用型变量的形式传入。
+- 在主函数中写一个局部函数来处理。
+
+在这里我写一下第二种处理方式的代码：
+
+```go
+func diameterOfBinaryTree(root *TreeNode) int {
+    maxDiameter := 0
+
+    var getHeight func(root *TreeNode) int
+    getHeight = func(root *TreeNode) int {
+        if root == nil {
+            return 0
+        }
+        left := getHeight(root.Left)
+        right := getHeight(root.Right)
+        maxDiameter = max(maxDiameter, left + right)
+        return max(left, right) + 1
+    }
+
+    getHeight(root)
+    return maxDiameter
+}
+```
+
+其中的第二种方式还体现了一个闭包的特性（我理解的闭包就是一个函数可以修改它外部的变量）。所以之后如果还有类似的需求，优先使用这种局部函数的做法吧。
+
+## 38. 将有序数组转换为二叉搜索树（108）
+
+给你一个整数数组 `nums` ，其中元素已经按 **升序** 排列，请你将其转换为一棵平衡二叉搜索树。
+
+```go
+func sortedArrayToBST(nums []int) *TreeNode {
+    // 先取其中最中间的一个节点，作为根节点，然后递归处理左边和右边
+    
+    var createTree func(nums []int, left int, right int) *TreeNode
+    createTree = func(nums []int, left int, right int) *TreeNode {
+        if left > right {
+            return nil
+        }
+        mid := (left + right) / 2
+        root := &TreeNode{Val: nums[mid]}
+        root.Left = createTree(nums, left, mid - 1)
+        root.Right = createTree(nums, mid + 1, right)
+        return root
+    }
+
+    return createTree(nums, 0, len(nums) - 1)
+}
+```
+
+至于算法中，建立新函数的时候，是将新函数建立在原函数的外面，还是原函数的内部，主要考虑以下几点问题：
+
+- 代码是否只在当前函数中使用？
+- 代码是不是简单的、专一的逻辑？
+- 除了当前的母函数之外，还有没有其他的函数可能会调用此函数？
+
+我刷算法的时候其实考虑不太到这些问题，也不需要考虑。那之后是否使用闭包？这就比较灵活了。
+
+## 39. 移除链表元素（203）
+
+给你一个链表的头节点 `head` 和一个整数 `val` ，请你删除链表中所有满足 `Node.val == val` 的节点，并返回 **新的头节点** 。
+
+```go
+func removeElements(head *ListNode, val int) *ListNode {
+	dummyHead := &ListNode{Next: head}
+	node := dummyHead
+	for node.Next != nil {
+		if node.Next.Val == val {
+			node.Next = node.Next.Next
+		} else {
+			node = node.Next
+		}
+	}
+	return dummyHead.Next
+}
+```
+
+## 40. 平衡二叉树（110）
+
+给定一个二叉树，判断它是否是平衡二叉树。
+
+**平衡二叉树** 是指该树所有节点的左右子树的高度相差不超过 1。
+
+```go
+func isBalanced(root *TreeNode) bool {
+    return getHeight(root) != -1
+}
+
+func Abs(val int) int {
+	if val > 0 {
+		return val
+	} else {
+		return val * -1
+	}
+}
+
+func getHeight(root *TreeNode) int {
+	if root == nil {
+		return 0
+	}
+	left := getHeight(root.Left)
+	right := getHeight(root.Right)
+	if left == -1 || right == -1 || Abs(left-right) > 1 {
+		return -1
+	} else {
+		return max(left, right) + 1
+	}
+}
+```
+
+原本的第一版代码是做了一个 res，然后把 res 的地址传给所有的 getHeight 函数调用了。
+
+后来问了问 AI，AI 说不平衡的时候直接返回 -1 就行，这样让代码更简洁，也让 getHeight 的返回值包含的信息量更大。实际上也确实不错。
+
+## 41. 判断子序列（392）
+
+给定字符串 **s** 和 **t** ，判断 **s** 是否为 **t** 的子序列。
+
+字符串的一个子序列是原始字符串删除一些（也可以不删除）字符而不改变剩余字符相对位置形成的新字符串。（例如，`"ace"`是`"abcde"`的一个子序列，而`"aec"`不是）。
+
+```go
+func isSubsequence(s string, t string) bool {
+    // s 是小串，t 是大串
+    i := 0
+    j := 0
+    for i < len(s) && j < len(t) {
+        if s[i] == t[j] {
+            i++
+            j++
+        } else {
+            j++
+        }
+    }
+    return i == len(s)
+}
+```
+
+## 42. 反转字符串（344）
+
+编写一个函数，其作用是将输入的字符串反转过来。输入字符串以字符数组 `s` 的形式给出。
+
+不要给另外的数组分配额外的空间，你必须**[原地](https://baike.baidu.com/item/原地算法)修改输入数组**、使用 O(1) 的额外空间解决这一问题。
+
+```go
+func reverseString(s []byte)  {
+    left, right := 0, len(s) - 1
+    for left < right {
+        s[left], s[right] = s[right], s[left]
+        left++
+        right--
+    }
+}
+```
+
+## 43. 字符串中的第一个唯一字符（387）
+
+给定一个字符串 `s` ，找到 *它的第一个不重复的字符，并返回它的索引* 。如果不存在，则返回 `-1` 。
+
+```go
+func firstUniqChar(s string) int {
+    letterToCountMap := make(map[byte]int)
+    for i := 0; i < len(s); i++ {
+        letterToCountMap[s[i]]++
+    }
+    for i := 0; i < len(s); i++ {
+        if letterToCountMap[s[i]] == 1 {
+            return i
+        }
+    }
+    return -1
+}
+```
+
+这是哈希表的经典解法，或者我们可以使用更高效的，在数组上建立哈希表：
+
+```go
+func firstUniqChar(s string) int {
+    hashMap := make([]int, 26)
+    for i := 0; i < len(s); i++ {
+        hashMap[s[i] - byte('a')]++
+    }
+    for i := 0; i < len(s); i++ {
+        if hashMap[s[i] - byte('a')] == 1 {
+            return i
+        }
+    }
+    return -1
+}
+```
+
+重点在于理解原理，实际上选择哪种做法没关系的。
+
+## 44. 二叉树的前序遍历（144）
+
+给你二叉树的根节点 `root` ，返回它节点值的 **前序** 遍历。
+
+```go
+func preorderTraversal(root *TreeNode) []int {
+	res := make([]int, 0)
+
+	var preorder func(root *TreeNode)
+	preorder = func(root *TreeNode) {
+		if root == nil {
+			return
+		}
+		res = append(res, root.Val)
+		preorder(root.Left)
+		preorder(root.Right)
+	}
+
+	preorder(root)
+	return res
+}
+```
+
+## 45. 字符串相加（415）
+
+给定两个字符串形式的非负整数 `num1` 和`num2` ，计算它们的和并同样以字符串形式返回。
+
+你不能使用任何內建的用于处理大整数的库（比如 `BigInteger`）， 也不能直接将输入的字符串转换为整数形式。
+
+```go
+func addStrings(num1 string, num2 string) string {
+    carry := 0
+    i := len(num1) - 1
+    j := len(num2) - 1
+    
+    res := make([]byte, 0)
+
+    for i >= 0 || j >= 0 || carry != 0 {
+        value1 := 0
+        value2 := 0
+        if i >= 0 {
+            value1 = int(num1[i] - '0')
+            i--
+        }
+        if j >= 0 {
+            value2 = int(num2[j] - '0')
+            j--
+        }
+        sum := value1 + value2 + carry
+        sum, carry = sum % 10, sum / 10
+        
+        res = append(res, byte(sum + '0'))
+    }
+
+    return reverse(string(res))
+}
+
+func reverse(str string) string {
+    bytes := []byte(str)
+    left := 0
+    right := len(str) - 1
+    for left < right {
+        bytes[left], bytes[right] = bytes[right], bytes[left]
+        left++
+        right--
+    }
+    return string(bytes)
+}
+```
+
+## 46. 最小偶倍数（2413）
+
+给你一个正整数 `n` ，返回 `2` 和 `n` 的最小公倍数（正整数）。
+
+```go
+func smallestEvenMultiple(n int) int {
+    if n & 1 == 1 {
+        return 2 * n
+    }
+    return n
+}
+```
+
+## 47. 相同的树（100）
+
+给你两棵二叉树的根节点 `p` 和 `q` ，编写一个函数来检验这两棵树是否相同。
+
+如果两个树在结构上相同，并且节点具有相同的值，则认为它们是相同的。
+
+```go
+func isSameTree(p *TreeNode, q *TreeNode) bool {
+    if p == q {
+        return true
+    }    
+    if p == nil && q != nil || p != nil && q == nil {
+        return false
+    }
+    if p.Val != q.Val {
+        return false
+    }
+    return isSameTree(p.Left, q.Left) && isSameTree(p.Right, q.Right)
+}
+```
+
+## 48. 有序数组的平方（977）
+
+给你一个按 **非递减顺序** 排序的整数数组 `nums`，返回 **每个数字的平方** 组成的新数组，要求也按 **非递减顺序** 排序。
+
+```go
+func sortedSquares(nums []int) []int {
+	var left int
+	var right int
+	for right < len(nums) {
+		if nums[right] >= 0 {
+			break
+		}
+		right++
+	}
+	left = right - 1
+
+	// left 指向的值都是负数
+	// right 位置的都是正数
+	res := make([]int, 0, len(nums))
+	for left >= 0 && right < len(nums) {
+		if nums[left]*-1 <= nums[right] {
+			// 左边
+			res = append(res, nums[left]*nums[left])
+			left--
+		} else {
+			// 右边
+			res = append(res, nums[right]*nums[right])
+			right++
+		}
+	}
+
+	for left >= 0 {
+		res = append(res, nums[left]*nums[left])
+		left--
+	}
+	for right < len(nums) {
+		res = append(res, nums[right]*nums[right])
+		right++
+	}
+
+	return res
+}
+```
+
+或者是，我们也可以从两端开始构建数组：
+
+```go
+func sortedSquares(nums []int) []int {
+    res := make([]int, len(nums))
+    left := 0
+    right := len(nums) - 1
+    pos := len(nums) - 1
+    
+    for left <= right {
+        leftSquare := nums[left] * nums[left]
+        rightSquare := nums[right] * nums[right]
+        if leftSquare > rightSquare {
+            res[pos] = leftSquare
+            pos--
+            left++
+        } else {
+            res[pos] = rightSquare
+            pos--
+            right--
+        }
+    }
+
+    return res
+}
+```
+
+## 49. 反转字符串II（541）
+
+给定一个字符串 `s` 和一个整数 `k`，从字符串开头算起，每计数至 `2k` 个字符，就反转这 `2k` 字符中的前 `k` 个字符。
+
+- 如果剩余字符少于 `k` 个，则将剩余字符全部反转。
+- 如果剩余字符小于 `2k` 但大于或等于 `k` 个，则反转前 `k` 个字符，其余字符保持原样。
+
+```go
+func reverseStr(s string, k int) string {
+    bytes := []byte(s)
+    left := 0
+    right := min(k - 1, len(s) - 1)
+    
+    for left < len(s) {
+        reverseBytes(bytes, left, right)
+        left += 2 * k
+        right = min(right + 2 * k, len(s) - 1)
+    }
+
+    return string(bytes)
+}
+
+func reverseBytes(bytes []byte, left int, right int) {
+    for left < right {
+        bytes[left], bytes[right] = bytes[right], bytes[left]
+        left++
+        right--
+    }
+}
+```
+
+## 50. 温度转换（2469）
+
+给你一个四舍五入到两位小数的非负浮点数 `celsius` 来表示温度，以 **摄氏度**（**Celsius**）为单位。
+
+你需要将摄氏度转换为 **开氏度**（**Kelvin**）和 **华氏度**（**Fahrenheit**），并以数组 `ans = [kelvin, fahrenheit]` 的形式返回结果。
+
+返回数组 *`ans`* 。与实际答案误差不超过 `10-5` 的会视为正确答案**。**
+
+**注意：**
+
+- `开氏度 = 摄氏度 + 273.15`
+- `华氏度 = 摄氏度 * 1.80 + 32.00`
+
+```go
+func convertTemperature(celsius float64) []float64 {
+    var kelvin float64
+    var fahrenheit float64
+
+    kelvin = celsius + 273.15
+    fahrenheit = celsius * 1.8 + 32.0
+
+    return []float64{kelvin, fahrenheit}
+}
+```
+
+## 51. 最长回文字串（409）
+
+给定一个包含大写字母和小写字母的字符串 `s` ，返回通过这些字母构造成的最长的回文串的长度。
+
+在构造过程中，请注意 **区分大小写** 。比如 `"Aa"` 不能当做一个回文字符串。
+
+```go
+func longestPalindrome(s string) int {
+    // 统计所有的元素的数量
+    countsMap := make([]int, 128)
+    for i := 0; i < len(s); i++ {
+        countsMap[s[i]]++
+    }
+    res := 0
+    for i := 'a'; i <= 'z'; i++ {
+        res += countsMap[i] >> 1 << 1
+    }
+    for i := 'A'; i <= 'Z'; i++ {
+        res += countsMap[i] >> 1 << 1
+    }
+    if res < len(s) {
+        res += 1
+    }
+    return res
+}
+```
+
+## 52. 种花问题（605）
+
+假设有一个很长的花坛，一部分地块种植了花，另一部分却没有。可是，花不能种植在相邻的地块上，它们会争夺水源，两者都会死去。
+
+给你一个整数数组 `flowerbed` 表示花坛，由若干 `0` 和 `1` 组成，其中 `0` 表示没种植花，`1` 表示种植了花。另有一个数 `n` ，能否在不打破种植规则的情况下种入 `n` 朵花？能则返回 `true` ，不能则返回 `false` 。
+
+```go
+func canPlaceFlowers(flowerbed []int, n int) bool {
+    // 宽度为 n 的空地：
+	// 1. 如果这个空地两边都不是边缘，那么可以种 (n - 1) / 2 个
+	// 2. 如果靠近了一边的边缘，那么可以种 n / 2 个
+	// 3. 如果两边都是边缘，那么可以种 (n + 1) / 2 个
+
+    left := -1
+    right := -1
+
+    var getCapacity func(spaceNum int) int
+    getCapacity = func(spaceNum int) int {
+        edgeNum := 0
+        if left == 0 {
+            edgeNum++
+        }
+        if right == len(flowerbed) - 1 {
+            edgeNum++
+        }
+        return (spaceNum + edgeNum - 1) / 2
+    }
+
+    index := 0
+    capacity := 0
+    for index < len(flowerbed) {
+        if left == -1 && flowerbed[index] == 0 && (index == 0 || flowerbed[index - 1] == 1) {
+            // 开始计数空地数量
+            left = index
+        }
+        if left != -1 && flowerbed[index] == 1 {
+            right = index - 1
+            spaceNum := right - left + 1
+            capacity += getCapacity(spaceNum)
+
+            // 重置
+            left = -1
+        }
+        index++
+    }
+
+    if left != -1 {
+        right = len(flowerbed) - 1
+        spaceNum := right - left + 1
+        capacity += getCapacity(spaceNum)
+    }
+
+    return capacity >= n
+}
+```
+
+这是我初步的算法。后面知道还有另一种处理方法——使用贪心算法。
+
+思路就是从前到后遍历一次花坛，遇到空地“能种直接种”，同时统计好已经种的花的数量。这种算法在时间复杂度上跟我原始的算法是一样的，好处就是更简洁了。
+
+```go
+func canPlaceFlowers(flowerbed []int, n int) bool {
+    plantNum := 0  // 已经种植的数量
+    for i := 0; i < len(flowerbed); i++ {
+        if flowerbed[i] == 1 {
+            continue
+        }
+        leftIsEmpty := i == 0 || flowerbed[i - 1] == 0
+        rightIsEmpty := i == len(flowerbed) - 1 || flowerbed[i + 1] == 0
+        if leftIsEmpty && rightIsEmpty {
+            flowerbed[i] = 1
+            plantNum++
+        }
+    }
+    return plantNum >= n
+}
+```
+
+## 53. 找到两个数组中的公共元素（2956）
+
+给你两个下标从 **0** 开始的整数数组 `nums1` 和 `nums2` ，它们分别含有 `n` 和 `m` 个元素。请你计算以下两个数值：
+
+- `answer1`：使得 `nums1[i]` 在 `nums2` 中出现的下标 `i` 的数量。
+- `answer2`：使得 `nums2[i]` 在 `nums1` 中出现的下标 `i` 的数量。
+
+返回 `[answer1, answer2]`。
+
+```go
+
+
+func findIntersectionValues(nums1 []int, nums2 []int) []int {
+    // 所有数值都是在 [1, 100] 之间的
+    hashTable := make([]bool, 101)  // hashTable[i] 表示 i 是否出现过
+    
+    answer1 := 0
+    for _, num := range nums2 {
+        hashTable[num] = true
+    }
+    for i := 0; i < len(nums1); i++ {
+        if hashTable[nums1[i]] {
+            answer1++
+        }
+    }
+
+    hashTable = make([]bool, 101)
+    answer2 := 0
+    for _, num := range nums1 {
+        hashTable[num] = true
+    }
+    for i := 0; i < len(nums2); i++ {
+        if hashTable[nums2[i]] {
+            answer2++
+        }
+    }
+
+    return []int{answer1, answer2}
+}
+```
+
+一开始也用过用 map 结构来存储的方法，但是程序的运行时间比这个长。总结就是：
+
+- 如果知道 key 的范围且 key 的范围是比较小的，就是用切片形式的哈希表。
+- 如果不知道 key 范围或者 key 的范围很大，就适合使用 map 结构。
+
 
 
 
@@ -235,11 +883,7 @@ func removeDuplicates(s string) string {
 
 待做的题目：
 
-349
-
-543、108、203、110、392、344、387、144、415、2413、100、977、541
-
-
+258、674、496、1137、643、1422、3200、697、628、485、414、463、1486、3162、645、1512、3099、2535、448、724、290、263、733、728、434、2769、561、965、976、3222、1071、168、867、338、345、501、876、367、222、832、1446、3184、896、1332、2073、1572、2848、3131、872、520
 
 
 

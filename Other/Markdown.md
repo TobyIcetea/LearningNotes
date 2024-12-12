@@ -97,6 +97,8 @@ Markdown 支持引用其他文件中的标题，格式如下：
 
 ## 2. md 文件转 docx 文件
 
+### 2.1 用命令操作
+
 转换文件的前提是下载好 pandoc：[pandoc 下载地址](https://github.com/jgm/pandoc/releases)
 
 之后在 windows 找到 pandoc 的可执行文件的地址，在这个地址里面，需要添加两个东西：
@@ -146,15 +148,31 @@ Markdown 支持引用其他文件中的标题，格式如下：
 
 之后将 `convert_md_to_docx.bat` 文件加入 utools 的本地文件启动，之后直接调用就可以啦。
 
+### 2.2 用 Typora 操作
+
+后来我发现 Typora 中本带有这样的操作。
+
+![image-20241211164231603](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20241211164231603.png)
 
 
 
+之后只要将这个 template 文件保存到本地，然后在 typora 中设置：偏好设置👉导出👉docx👉样式文件就可以啦。
 
+## 3. Typora 卡顿问题解决
 
+修改 Typora 的配置文件，使用 GPU 加速。
 
+修改文件：`C:\Users\X2406\AppData\Roaming\Typora\conf.user.json`（目前我电脑上是这个位置，最便捷的寻找方式是直接使用 everything 搜索 `conf.user.json`）。
 
-
-
+```json
+/** For advanced users. */
+{
+  "monocolorEmoji": false, //default false. Only work for Windows
+  "maxFetchCountOnFileList": 500,
+  // 。。。。。。上面有很多的内容，我们只需要改最后一行 flags 就行。。。。。。。。
+  "flags": [["GPU 0"]] // default [], append Chrome launch flags, e.g: [["disable-gpu"], ["host-rules", "MAP * 127.0.0.1"]]
+}
+```
 
 
 
