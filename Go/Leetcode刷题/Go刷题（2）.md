@@ -1,7 +1,5 @@
 # Go 刷题（2）
 
-[TOC]
-
 ## 31. 重复的子字符串（459）
 
 给定一个非空的字符串 `s` ，检查是否可以通过由它的一个子串重复多次构成。
@@ -871,6 +869,308 @@ func findIntersectionValues(nums1 []int, nums2 []int) []int {
 - 如果知道 key 的范围且 key 的范围是比较小的，就是用切片形式的哈希表。
 - 如果不知道 key 范围或者 key 的范围很大，就适合使用 map 结构。
 
+## 54. 各位相加（258）
+
+给定一个非负整数 `num`，反复将各个位上的数字相加，直到结果为一位数。返回这个结果。
+
+```go
+func addDigits(num int) int {
+    for num >= 10 {
+        sum := 0
+        for num != 0 {
+            sum, num = sum + num % 10, num / 10
+        }
+        num = sum
+    }
+    return num
+}
+```
+
+这是原始的写法，也是直接描述题意的写法。但是这个题目还可以通过一个数学规律：数字根，来进行优化。优化后的代码如下：
+
+```go
+func addDigits(num int) int {
+    return (num - 1) % 9 + 1
+}
+```
+
+这无疑是更简单的，但是不好想，其中的数学规律一般也是想不到的。继续探索这种规律，就违背了我刷题的初心了，所以我就不深入钻研了。
+
+## 55. 最长连续递增子序列（674）
+
+给定一个未经排序的整数数组，找到最长且 **连续递增的子序列**，并返回该序列的长度。
+
+**连续递增的子序列** 可以由两个下标 `l` 和 `r`（`l < r`）确定，如果对于每个 `l <= i < r`，都有 `nums[i] < nums[i + 1]` ，那么子序列 `[nums[l], nums[l + 1], ..., nums[r - 1], nums[r]]` 就是连续递增子序列。
+
+ ```go
+ func findLengthOfLCIS(nums []int) int {
+     // 这里的递增是严格的递增
+     res := 1
+     left := 0
+     index := 1
+     for index < len(nums) {
+         if nums[index] <= nums[index - 1] {
+             // 终止计数
+             res = max(res, index - left)
+             left = index
+         }
+         index += 1
+     }
+     res = max(res, len(nums) - left)
+     return res
+ }
+ ```
+
+## 56. 下一个更大元素I（496）
+
+`nums1` 中数字 `x` 的 **下一个更大元素** 是指 `x` 在 `nums2` 中对应位置 **右侧** 的 **第一个** 比 `x` 大的元素。
+
+给你两个 **没有重复元素** 的数组 `nums1` 和 `nums2` ，下标从 **0** 开始计数，其中`nums1` 是 `nums2` 的子集。
+
+对于每个 `0 <= i < nums1.length` ，找出满足 `nums1[i] == nums2[j]` 的下标 `j` ，并且在 `nums2` 确定 `nums2[j]` 的 **下一个更大元素** 。如果不存在下一个更大元素，那么本次查询的答案是 `-1` 。
+
+返回一个长度为 `nums1.length` 的数组 `ans` 作为答案，满足 `ans[i]` 是如上所述的 **下一个更大元素** 。
+
+```go
+func nextGreaterElement(nums1 []int, nums2 []int) []int {
+    // 先用一个 map 保存 nums2 中每一个数值所对应的下标
+    valueToIndexMap := make(map[int]int)  // key - 数值，value - 对应的在 nums2 中的下标
+    for i := 0; i < len(nums2); i++ {
+        valueToIndexMap[nums2[i]] = i
+    }
+    
+    res := make([]int, len(nums1))
+    pos := 0
+    for _, num := range nums1 {
+        index := valueToIndexMap[num] + 1
+        for index < len(nums2) {
+            if nums2[index] > num {
+                res[pos] = nums2[index]
+                pos++
+                break
+            }
+            index++
+        }
+        if index == len(nums2) {
+            res[pos] = -1
+            pos++
+        }
+    }
+
+    return res
+}
+```
+
+这是我最初的想法，但是算法的时间复杂度比较高，直接干到了 O(mn)。后来发现这个题目可以用单调栈解决：
+
+```go
+func nextGreaterElement(nums1 []int, nums2 []int) []int {
+    // 记录一下 nums2 中 value-index 的键值对
+    valueToIndexMap := make(map[int]int)
+    for i := 0; i < len(nums2); i++ {
+        valueToIndexMap[nums2[i]] = i
+    }
+
+    // 记录一下 nums2 中的每一个元素，比它更大的都是第几个元素
+    nextGreaterIndex := make([]int, len(nums2))  // i 位置的元素右边第一个更大的元素是 nextGreaterIndex[i] 位置的元素
+    stack := make([]int, 0)  // 这个 stack 里面存储的都是下标
+    for i := 0; i < len(nums2); i++ {
+        for len(stack) != 0 && nums2[i] > nums2[stack[len(stack) - 1]] {
+            nextGreaterIndex[stack[len(stack) - 1]] = i
+            stack = stack[:len(stack) - 1]
+        }
+        stack = append(stack, i)
+    }
+    // 剩下的元素都是右边没有比自己更大的了
+    for len(stack) != 0 {
+        nextGreaterIndex[stack[len(stack) - 1]] = -1
+        stack = stack[:len(stack) - 1]
+    }
+
+    res := make([]int, len(nums1))
+    for i := 0; i < len(nums1); i++ {
+        posInNums2 := valueToIndexMap[nums1[i]]
+        if nextGreaterIndex[posInNums2] == -1 {
+            res[i] = -1
+        } else {
+            res[i] = nums2[nextGreaterIndex[posInNums2]]
+        }
+    }
+
+    return res
+}
+```
+
+我是如何理解单调栈的呢？我觉得单调栈其实就是，遍历每一个元素，然后这些元素就像是争霸王一样（以底部更大的单调栈举例），如果新来的没有之前的大，那你新来的就在上面好好呆着；如果新来的比之前的一些大，就让之前垫好的一层一层元素一个一个起来，一直到一个它惹不起的元素。
+
+这个过程中我们需要记录什么呢？我们需要记录的是“是谁杀死了这个元素”，也就是说每个元素都要知道，它自己最后是被谁击败的。如果一直到我们的比赛结束，栈中还保留着一些元素，那这些元素就是没有被击败的，最后活下来的元素。
+
+这样一说就明白单调栈适合处理什么类型的问题了：序列中相邻元素的相对大小比较重要的问题。最经典的就是：我想知道在我右边第一个比我大的是谁。这就是经典的单调栈的问题。
+
+## 57. 第N个泰波纳契数（1137）
+
+泰波那契序列 Tn 定义如下： 
+
+T0 = 0, T1 = 1, T2 = 1, 且在 n >= 0 的条件下 Tn+3 = Tn + Tn+1 + Tn+2
+
+给你整数 `n`，请返回第 n 个泰波那契数 Tn 的值。
+
+```go
+func tribonacci(n int) int {
+    if n == 0 {
+        return 0
+    }
+    if n == 1 || n == 2 {
+        return 1
+    }
+    prepre := 0
+    pre := 1
+    cur := 1
+    for i := 3; i <= n; i++ {
+        cur, pre, prepre = cur + pre + prepre, cur, pre
+    }
+    return cur
+}
+```
+
+## 58. 子数组最大平均数I（643）
+
+给你一个由 `n` 个元素组成的整数数组 `nums` 和一个整数 `k` 。
+
+请你找出平均数最大且 **长度为 `k`** 的连续子数组，并输出该最大平均数。
+
+任何误差小于 `10-5` 的答案都将被视为正确答案。
+
+```go
+func findMaxAverage(nums []int, k int) float64 {
+    // 就是算总和
+    curSum := 0
+    left := 0
+    right := k - 1
+    
+    for i := left; i <= right; i++ {
+        curSum += nums[i]
+    }
+    maxSum := curSum
+
+    for right < len(nums) - 1 {
+        curSum -= nums[left]
+        left++
+        right++
+        curSum += nums[right]
+        maxSum = max(maxSum, curSum)
+    }
+
+    return float64(maxSum) / float64(k)
+}
+```
+
+## 59. 分割字符串的最大得分（1422）
+
+给你一个由若干 0 和 1 组成的字符串 `s` ，请你计算并返回将该字符串分割成两个 **非空** 子字符串（即 **左** 子字符串和 **右** 子字符串）所能获得的最大得分。
+
+「分割字符串的得分」为 **左** 子字符串中 **0** 的数量加上 **右** 子字符串中 **1** 的数量。
+
+```go
+func maxScore(s string) int {
+    leftScore := make([]int, len(s))
+    rightScore := make([]int, len(s))
+    
+    // leftScore[index] 表示左边部分的右边界是 index，index 位置处的元素属于左边
+    if s[0] == '0' {
+        leftScore[0] = 1
+    } else {
+        leftScore[0] = 0
+    }
+    for i := 1; i < len(s); i++ {
+        if s[i] == '0' {
+            leftScore[i] = leftScore[i - 1] + 1
+        } else {
+            leftScore[i] = leftScore[i - 1]
+        }
+    }
+
+    for i := len(s) - 2; i >= 0; i-- {
+        if s[i + 1] == '1' {
+            rightScore[i] = rightScore[i + 1] + 1
+        } else {
+            rightScore[i] = rightScore[i + 1]
+        }
+    }
+
+    res := 0
+    for i := 0; i < len(s) - 1; i++ {
+        res = max(res, leftScore[i] + rightScore[i])
+    }
+    return res
+}
+```
+
+这是第一次写的代码，时间复杂度 O(n)，但是空间复杂度也是 O(n)。通过如下的优化，可以将空间复杂度优化为 O(1)。
+
+```go
+func maxScore(s string) int {
+    res := 0
+
+    score := 0
+    // 先假装所有的元素都在右边
+    for i := 0; i < len(s); i++ {
+        if s[i] == '1' {
+            score++
+        }
+    }
+
+    for i := 0; i < len(s) - 1; i++ {
+        // i 表示本次将 i 位置的元素归到左边
+        if s[i] == '0' {
+            score++
+        } else {
+            score--
+        }
+        res = max(res, score)
+    }
+
+    return res
+}
+```
+
+## 60. 三角形的最大高度（3200）
+
+给你两个整数 `red` 和 `blue`，分别表示红色球和蓝色球的数量。你需要使用这些球来组成一个三角形，满足第 1 行有 1 个球，第 2 行有 2 个球，第 3 行有 3 个球，依此类推。
+
+每一行的球必须是 **相同** 颜色，且相邻行的颜色必须 **不同**。
+
+返回可以实现的三角形的 **最大** 高度。
+
+```go
+func maxHeightOfTriangle(red int, blue int) int {
+    var smaller int
+    var larger int
+    if red < blue {
+        smaller = red
+        larger = blue
+    } else {
+        smaller = blue
+        larger = red
+    }
+
+    curHeight := 1
+    largerNeed := 2  // 要想再高一层，较多的球需要多少
+    smallerNeed := 1  // 较少的球需要到达多少
+    for larger >= largerNeed && smaller >= smallerNeed {
+        curHeight++
+        smallerNeed, largerNeed = largerNeed, smallerNeed + curHeight + 1
+    }
+
+    return curHeight   
+}
+```
+
+我这个算法是一层一层往上升的。largerNeed 和 smallerNeed 每次都提升自己的水平，这差不多是一个 1 + 2 + 3 +... 这样？如果这样的话，我的时间复杂度就是 $\sqrt{n}$ 差不多。
+
+题解中还有另一种更高效的解法，是用了一个二分查找。先设置了一个 `canBuild(height int)` 函数，这个函数的功能是看能不能构建一个高度为 `height` 的三角形，根据返回的结果，取二分查找一个更合适的最大高度。
+
+如果 n 特别大，这种方法或许会有更好的返回值吧。但是这个题目只是简单题，数据量也控制在 500 以内。既然已经超过 100% 了，就说明更新的方法可能也没啥意义。那就……到此为止。
 
 
 
@@ -881,9 +1181,6 @@ func findIntersectionValues(nums1 []int, nums2 []int) []int {
 
 
 
-待做的题目：
-
-258、674、496、1137、643、1422、3200、697、628、485、414、463、1486、3162、645、1512、3099、2535、448、724、290、263、733、728、434、2769、561、965、976、3222、1071、168、867、338、345、501、876、367、222、832、1446、3184、896、1332、2073、1572、2848、3131、872、520
 
 
 
