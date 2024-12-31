@@ -1047,6 +1047,522 @@ func floodFill(image [][]int, sr int, sc int, color int) [][]int {
 }
 ```
 
+## 77. 自然数（728）
+
+**自除数** 是指可以被它包含的每一位数整除的数。
+
+- 例如，`128` 是一个 **自除数** ，因为 `128 % 1 == 0`，`128 % 2 == 0`，`128 % 8 == 0`。
+
+**自除数** 不允许包含 0 。
+
+给定两个整数 `left` 和 `right` ，返回一个列表，*列表的元素是范围 `[left, right]`（包括两个端点）内所有的 **自除数*** 。
+
+```go
+func selfDividingNumbers(left int, right int) []int {
+    res := make([]int, 0)
+
+    Outer:
+    for num := left; num <= right; num++ {
+        numCopy := num
+        // 看 num 是不是自然数
+        for numCopy != 0 {
+            lastNumber := numCopy % 10  // num 的最后一位
+            if lastNumber == 0 || num % lastNumber != 0 {
+                continue Outer
+            }
+            numCopy /= 10
+        }
+        res = append(res, num)
+    }
+
+    return res
+}
+```
+
+这里用到了一个比较特殊的语法，是 Go 语言中的 for 循环外部的通过标记来 `break` 或者 `continue`。语法其实和 C 中的 goto 之类的比较像。但是这里通过 Outer 和 Inner 来标记内外层循环，可以实现直接从内层循环跳转出外层循环。
+
+C++ 中这样做往往要加一些 flag 之类的变量，但是 Go 中在这块儿又额外的语法，所以实现起来比 C++ 要简单一些。
+
+## 78. 字符串中的单词数（434）
+
+统计字符串中的单词个数，这里的单词指的是连续的不是空格的字符。
+
+请注意，你可以假定字符串里不包括任何不可打印的字符。
+
+```go
+
+import "strings"
+func countSegments(s string) int {
+    // 返回空格的个数 + 1
+    return len(strings.Fields(s))
+}
+```
+
+## 79. 找出最大的可达成数字（2769）
+
+给你两个整数 `num` 和 `t` 。
+
+如果整数 `x` 可以在执行下述操作不超过 `t` 次的情况下变为与 `num` 相等，则称其为 **可达成数字** ：
+
+- 每次操作将 `x` 的值增加或减少 `1` ，同时可以选择将 `num` 的值增加或减少 `1` 。
+
+返回所有可达成数字中的最大值。可以证明至少存在一个可达成数字。
+
+```go
+func theMaximumAchievableX(num int, t int) int {
+    return num + 2*t
+}
+```
+
+## 80. 数组拆分（561）
+
+给定长度为 `2n` 的整数数组 `nums` ，你的任务是将这些数分成 `n` 对, 例如 `(a1, b1), (a2, b2), ..., (an, bn)` ，使得从 `1` 到 `n` 的 `min(ai, bi)` 总和最大。
+
+返回该 **最大总和** 。
+
+```go
+import "sort"
+func arrayPairSum(nums []int) int {
+    sort.Ints(nums)
+    res := 0
+    for i := 0; i < len(nums); i += 2 {
+        res += nums[i]
+    }
+    return res
+}
+```
+
+## 81. 单值二叉树（965）
+
+如果二叉树每个节点都具有相同的值，那么该二叉树就是*单值*二叉树。
+
+只有给定的树是单值二叉树时，才返回 `true`；否则返回 `false`。
+
+```go
+func isUnivalTree(root *TreeNode) bool {
+    if root == nil {
+        return true
+    }
+    val := root.Val
+    if root.Left != nil && root.Left.Val != val {
+        return false
+    }
+    if root.Right != nil && root.Right.Val != val {
+        return false
+    }
+    return isUnivalTree(root.Left) && isUnivalTree(root.Right)
+}
+```
+
+## 82. 三角形的最大周长（976）
+
+给定由一些正数（代表长度）组成的数组 `nums` ，返回 *由其中三个长度组成的、**面积不为零**的三角形的最大周长* 。如果不能形成任何面积不为零的三角形，返回 `0`。
+
+```go
+
+import "sort"
+func largestPerimeter(nums []int) int {
+    sort.Ints(nums)
+    for i := len(nums) - 1; i >= 2; i-- {
+        if nums[i - 1] + nums[i - 2] > nums[i] {
+            return nums[i] + nums[i - 1] + nums[i - 2]
+        }
+    }
+
+    return 0
+}
+```
+
+## 83. 求出硬币游戏的赢家（3222）
+
+给你两个 **正** 整数 `x` 和 `y` ，分别表示价值为 75 和 10 的硬币的数目。
+
+Alice 和 Bob 正在玩一个游戏。每一轮中，Alice 先进行操作，Bob 后操作。每次操作中，玩家需要拿走价值 **总和** 为 115 的硬币。如果一名玩家无法执行此操作，那么这名玩家 **输掉** 游戏。
+
+两名玩家都采取 **最优** 策略，请你返回游戏的赢家。
+
+```go
+func winningPlayer(x int, y int) string {
+    turn := false  // false 表示是 bob 的回合，true 表示是 alice 的回合
+    for {
+        if x >= 1 && y >= 4 {
+            x -= 1
+            y -= 4
+        } else {
+            break
+        }
+        turn = !turn
+    }
+    if turn {
+        return "Alice"
+    } else {
+        return "Bob"
+    }
+}
+```
+
+或者是根据代码做进一步的计算优化：
+
+```go
+func winningPlayer(x int, y int) string {
+    y = y / 4
+    count := min(x, y)  // count 表示可以进行多少次游戏
+    if count & 1 == 0 {
+        return "Bob"
+    } else {
+        return "Alice"
+    }
+}
+```
+
+## 84. 字符串的最大公因子（1071）
+
+对于字符串 `s` 和 `t`，只有在 `s = t + t + t + ... + t + t`（`t` 自身连接 1 次或多次）时，我们才认定 “`t` 能除尽 `s`”。
+
+给定两个字符串 `str1` 和 `str2` 。返回 *最长字符串 `x`，要求满足 `x` 能除尽 `str1` 且 `x` 能除尽 `str2`* 。
+
+```go
+func gcdOfStrings(str1 string, str2 string) string {
+    res := ""
+
+    // 先算出 len1 和 len2 的所有公因数
+    minLen := min(len(str1), len(str2))
+    lastLen := 0  // 上一次检测时候最终的长度
+
+    Outer:
+    for num := 1; num <= minLen; num++ {
+        if len(str1) % num != 0 || len(str2) % num != 0 {
+            continue
+        }
+        // 接下来要求 str1 和 str2 的前 num 个元素相同
+        // 而且 str1 和 str2 都是可以由这 num 个元素构成 n 次
+        for i := lastLen; i < num; i++ {
+            if str1[i] != str2[i] {
+                break Outer
+            }
+        }
+        lastLen = num  // 保证前 lastLen 个元素肯定是相同的
+        // 检查 str1
+        for i := lastLen; i < len(str1); i++ {
+            if str1[i] != str1[i % lastLen] {
+                continue Outer
+            }
+        }
+        // 检查 str2
+        for i := lastLen; i < len(str2); i++ {
+            if str2[i] != str2[i % lastLen] {
+                continue Outer
+            }
+        }
+        res = str1[:lastLen]
+    }
+
+    return res
+}
+```
+
+这种解法已经满足时间要求。但是还可以利用数学结论，创造出另一种解法：
+
+```go
+func gcdOfStrings(str1 string, str2 string) string {
+    var gcd func(a int, b int) int
+    gcd = func(a int, b int) int {
+        for b != 0 {
+            a, b = b, a % b
+        }
+        return a
+    }
+
+    if str1 + str2 != str2 + str1 {
+        return ""
+    }
+    maxLen := gcd(len(str1), len(str2))
+    return str1[:maxLen]
+}
+```
+
+这种解法主要用到几个数学结论：
+
+- `str1` 和 `str2` 有最大公因子的充要条件是：`str1 + str2 == str2 + str1`。比如说 str1 由 m 个 abc 组成，str2 由 n 个 abc 组成，那么 `m+n 个 abc == n+m 个 abc`。
+- 确定有解的情况下，`gcd(len(str1), len(str2))` 就是最优解的长度。
+
+其中有一个数学规律，我之前还真没注意过：如果有两个数字，它们有一些公约数，那么其中的其他所有公约数也是最大公约数的约数。比如说 12 和 18 的公约数有：`1,2,3,6`，其中 `1,2,3` 也都是 `6` 的约数。
+
+其中的数学思想一时间还有点想不清楚，那就不继续想了，再想下去方向就偏了。
+
+本体还有一个收获是又回顾了一下 `gcd` 算法的写法：
+
+```go
+func gcd(a int, b int) int {
+    for b != 0 {
+        a, b := b, a % b
+    }
+    return a
+}
+```
+
+## 85. Excel表列名称（168）
+
+给你一个整数 `columnNumber` ，返回它在 Excel 表中相对应的列名称。
+
+例如：
+
+> A -> 1
+> B -> 2
+> C -> 3
+> ...
+> Z -> 26
+> AA -> 27
+> AB -> 28 
+> ...
+
+```go
+func convertToTitle(columnNumber int) string {
+    res := make([]byte, 0)
+    for columnNumber != 0 {
+        num := columnNumber % 26
+        carry := columnNumber / 26
+        if num == 0 {
+            num = 26
+            carry -= 1
+        }
+        res = append(res, 'A' + byte(num) - 1)
+        columnNumber = carry
+    }
+
+    left := 0
+    right := len(res) - 1
+    for left < right {
+        res[left], res[right] = res[right], res[left]
+        left++
+        right--
+    }
+
+    return string(res)
+}
+```
+
+## 86. 转置矩阵（867）
+
+给你一个二维整数数组 `matrix`， 返回 `matrix` 的 **转置矩阵** 。
+
+矩阵的 **转置** 是指将矩阵的主对角线翻转，交换矩阵的行索引与列索引。
+
+![img](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/hint_transpose.png)
+
+```go
+func transpose(matrix [][]int) [][]int {
+    row := len(matrix)
+    column := len(matrix[0])
+    
+    // res 是一个 column * row 的矩阵
+    res := make([][]int, column)
+    for i := 0; i < column; i++ {
+        res[i] = make([]int, row)
+    }
+
+    for i := 0; i < row; i++ {
+        for j := 0; j < column; j++ {
+            res[j][i] = matrix[i][j]
+        }
+    }
+
+    return res
+}
+```
+
+## 87. 比特位计数（338）
+
+给你一个整数 `n` ，对于 `0 <= i <= n` 中的每个 `i` ，计算其二进制表示中 **`1` 的个数** ，返回一个长度为 `n + 1` 的数组 `ans` 作为答案。
+
+```go
+func countBits(n int) []int {
+    res := make([]int, n + 1)
+    for i := 0; i <= n; i++ {
+        num := i
+        for num != 0 {
+            if num & 1 == 1 {
+                res[i]++
+            }
+            num = num >> 1
+        }
+    }
+
+    return res
+}
+```
+
+但是这种方法时间效率很低，特别特别慢。后来根据题解，换了一种巧妙的二进制计算方法：
+
+```go
+func countBits(n int) []int {
+    // 奇数：奇数一定比前面那个偶数多一个 1
+    // 偶数：偶数的个数和除以二之后的那个数一样多
+    res := make([]int, n + 1)
+
+    res[0] = 0
+    for i := 1; i <= n; i++ {
+        if i & 1 == 1 {
+            // 奇数
+            res[i] = res[i - 1] + 1
+        } else {
+            // 偶数
+            res[i] = res[i >> 1]
+        }
+    }
+
+    return res
+}
+```
+
+## 88. 反转字符串中的元音字母（345）
+
+给你一个字符串 `s` ，仅反转字符串中的所有元音字母，并返回结果字符串。
+
+元音字母包括 `'a'`、`'e'`、`'i'`、`'o'`、`'u'`，且可能以大小写两种形式出现不止一次。
+
+```go
+func reverseVowels(s string) string {
+    vowels := map[byte]bool {
+        'a': true, 'e': true, 'i': true, 'o': true, 'u': true,
+        'A': true, 'E': true, 'I': true, 'O': true, 'U': true,
+    }
+    
+    bytes := []byte(s)
+    left := 0
+    right := len(bytes) - 1
+
+    for left < right {
+        for left < len(s) && !vowels[bytes[left]] {
+            left++
+        }
+        for right >= 0 && !vowels[bytes[right]] {
+            right--
+        }
+        if left < right {
+            bytes[left], bytes[right] = bytes[right], bytes[left]
+            left++
+            right--
+        }
+    }
+
+    return string(bytes)
+}
+```
+
+## 89. 二叉搜索树中的众数（501）
+
+给你一个含重复值的二叉搜索树（BST）的根节点 `root` ，找出并返回 BST 中的所有 [众数](https://baike.baidu.com/item/众数/44796)（即，出现频率最高的元素）。
+
+如果树中有不止一个众数，可以按 **任意顺序** 返回。
+
+假定 BST 满足如下定义：
+
+- 结点左子树中所含节点的值 **小于等于** 当前节点的值
+- 结点右子树中所含节点的值 **大于等于** 当前节点的值
+- 左子树和右子树都是二叉搜索树
+
+```go
+// 普通做法
+func findMode(root *TreeNode) []int {
+    counts := make(map[int]int)
+    maxCount := 0
+
+    var dfs func(root *TreeNode)
+    dfs = func(root *TreeNode) {
+        if root == nil {
+            return
+        }
+        counts[root.Val]++
+        maxCount = max(maxCount, counts[root.Val])
+        dfs(root.Left)
+        dfs(root.Right)
+    }
+
+    dfs(root)
+
+    res := make([]int, 0)
+    for value, count := range counts {
+        if count == maxCount {
+            res = append(res, value)
+        }
+    }
+
+    return res
+}
+```
+
+但是这样属于是使用了一种暴力的解法，没有利用好题目中原本模型中的特性。
+
+如果算法题目中出现了“二叉搜索树”，那么二叉搜索树的一个很重要的性质就是：二叉搜索树中序遍历的结果是有序的。
+
+```go
+func findMode(root *TreeNode) []int {
+    // 如何利用好二叉搜索树的性质？——中序搜索
+    maxCount := 0
+    curCount := 0
+    curValue := 0
+    res := make([]int, 0)
+    first := true
+
+    var inorderTraverse func(root *TreeNode)
+    inorderTraverse = func(root *TreeNode) {
+        if root == nil {
+            return
+        }
+        inorderTraverse(root.Left)
+
+        if first {
+            curValue = root.Val
+            first = false
+        }
+
+        if root.Val == curValue {
+            curCount++
+        } else {
+            curCount = 1
+        }
+        curValue = root.Val
+
+        if curCount > maxCount {
+            res = []int{}
+            maxCount = curCount
+        }
+        if curCount == maxCount {
+            res = append(res, curValue)
+        }
+
+        inorderTraverse(root.Right)
+    }
+
+    inorderTraverse(root)
+
+    return res
+}
+```
+
+中间 debug 了很长时间，因为今天 Leetcode 会员刚好过期了，没有 debug 功能了。改了好久的代码，但是测试案例的返回结果一直都是 0。最后才发现原来是因为我定义了函数内部的局部函数，但是没有通过 `inorderTraverse(root)` 来调用。😓
+
+## 90. 链表的中间节点（876）
+
+给你单链表的头结点 `head` ，请你找出并返回链表的中间结点。
+
+如果有两个中间结点，则返回第二个中间结点。
+
+```go
+func middleNode(head *ListNode) *ListNode {
+    fast := head
+    slow := head
+    for fast != nil && fast.Next != nil {
+        fast = fast.Next.Next
+        slow = slow.Next
+    }
+
+    return slow
+}
+```
+
+## 
 
 
 
@@ -1057,19 +1573,6 @@ func floodFill(image [][]int, sr int, sc int, color int) [][]int {
 
 
 
-
-
-
-
-
-
-
-
-
-
-待做的题目：
-
-728、434、2769、561、965、976、3222、1071、168、867、338、345、501、876、367、222、832、1446、3184、896、1332、2073、1572、2848、3131、872、520
 
 
 
