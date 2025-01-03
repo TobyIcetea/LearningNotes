@@ -888,17 +888,105 @@ func (this *MyStack) Empty() bool {
 }
 ```
 
+## 118. 汇总区间（228）
+
+给定一个  **无重复元素** 的 **有序** 整数数组 `nums` 。
+
+返回 ***恰好覆盖数组中所有数字** 的 **最小有序** 区间范围列表* 。也就是说，`nums` 的每个元素都恰好被某个区间范围所覆盖，并且不存在属于某个范围但不属于 `nums` 的数字 `x` 。
+
+列表中的每个区间范围 `[a,b]` 应该按如下格式输出：
+
+- `"a->b"` ，如果 `a != b`
+- `"a"` ，如果 `a == b`
+
+```go
+import "strconv"
+
+func summaryRanges(nums []int) []string {
+    if len(nums) == 0 {
+        return []string{}
+    }
+
+    var generateRes func(begin int, end int) string
+    generateRes = func(begin int, end int) string {
+        if begin == end {
+            return strconv.Itoa(begin)
+        } else {
+            return strconv.Itoa(begin) + "->" + strconv.Itoa(end)
+        }
+    }
+
+    res := make([]string, 0)
+    begin := -1
+    end := -1
+    first := true
+    for i, num := range nums {
+        if first {
+            begin = num
+            first = false
+        } else {
+            if num != nums[i - 1] + 1 {
+                // 清算一次
+                end = nums[i - 1]
+                res = append(res, generateRes(begin, end))
+                begin = num
+            }
+        }
+    }
+    end = nums[len(nums) - 1]
+    res = append(res, generateRes(begin, end))
+    
+
+    return res
+}
+```
+
+## 119. 2的幂（231）
+
+给你一个整数 `n`，请你判断该整数是否是 2 的幂次方。如果是，返回 `true` ；否则，返回 `false` 。
+
+如果存在一个整数 `x` 使得 `n == 2x` ，则认为 `n` 是 2 的幂次方。
+
+```go
+func isPowerOfTwo(n int) bool {
+    // 消除最后一个 1：n & (n-1)
+    if n <= 0 { return false }
+    return n&(n-1) == 0
+}
+```
+
+## 120. 有效的字母异位词（242）
+
+给定两个字符串 `s` 和 `t` ，编写一个函数来判断 `t` 是否是 `s` 的字母异位词。
+
+```go
+func isAnagram(s string, t string) bool {
+    if len(s) != len(t) {
+        return false
+    }
+    counts := make([]int, 128)
+    for i, _ := range s {
+        counts[s[i]]++
+        counts[t[i]]--
+    }
+
+    for i := 'a'; i <= 'z'; i++ {
+        if counts[i] != 0 {
+            return false
+        }
+    }
+
+    return true
+}
+```
+
+## 
 
 
 
 
 
 
-
-
-
-
-待做的题目：
 
 
 
