@@ -20,7 +20,7 @@ def scan_md_files(directory):
     for root, _, files in os.walk(directory):
         for file in files:
             # 排除掉题号记录文件
-            if file.endswith('.md') and file != "record.md":
+            if file.endswith('.md') and file != "README.md":
                 # 构建文件的完整路径
                 file_path = os.path.join(root, file)
 
@@ -120,8 +120,8 @@ def main():
     problems = scan_md_files(directory)
 
     if problems:
-        # 在当前目录下生成 record.md 文件
-        output_path = os.path.join(directory, "record.md")
+        # 在当前目录下生成 README.md 文件
+        output_path = os.path.join(directory, "README.md")
         generate_markdown(problems, output_path)
         print(f"题号记录已保存到 {output_path}")
     else:
