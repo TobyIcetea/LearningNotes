@@ -90,6 +90,57 @@ func firstBadVersion(n int) int {
 }
 ```
 
+## 124. Nim游戏（292）
+
+你和你的朋友，两个人一起玩 [Nim 游戏](https://baike.baidu.com/item/Nim游戏/6737105)：
+
+- 桌子上有一堆石头。
+- 你们轮流进行自己的回合， **你作为先手** 。
+- 每一回合，轮到的人拿掉 1 - 3 块石头。
+- 拿掉最后一块石头的人就是获胜者。
+
+假设你们每一步都是最优解。请编写一个函数，来判断你是否可以在给定石头数量为 `n` 的情况下赢得游戏。如果可以赢，返回 `true`；否则，返回 `false` 。
+
+```go
+func canWinNim(n int) bool {
+    return n%4 != 0
+}
+```
+
+## 125. 区域和检索-数组不可变（303）
+
+给定一个整数数组  `nums`，处理以下类型的多个查询:
+
+1. 计算索引 `left` 和 `right` （包含 `left` 和 `right`）之间的 `nums` 元素的 **和** ，其中 `left <= right`
+
+实现 `NumArray` 类：
+
+- `NumArray(int[] nums)` 使用数组 `nums` 初始化对象
+- `int sumRange(int i, int j)` 返回数组 `nums` 中索引 `left` 和 `right` 之间的元素的 **总和** ，包含 `left` 和 `right` 两点（也就是 `nums[left] + nums[left + 1] + ... + nums[right]` )
+
+```go
+type NumArray struct {
+    prefixSum []int
+}
+
+
+func Constructor(nums []int) NumArray {
+    n := len(nums)
+    prefixSum := make([]int, n+1)
+    
+    for i := 0; i < n; i++ {
+        prefixSum[i+1] = prefixSum[i] + nums[i]  // 计算前缀和
+    }
+
+    return NumArray{prefixSum: prefixSum}
+}
+
+
+func (this *NumArray) SumRange(left int, right int) int {
+    return this.prefixSum[right + 1] - this.prefixSum[left]
+}
+```
+
 
 
 
@@ -99,8 +150,6 @@ func firstBadVersion(n int) int {
 
 
 待做题目：
-292
-303
 326
 342
 350
