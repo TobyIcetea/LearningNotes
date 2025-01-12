@@ -141,6 +141,71 @@ func (this *NumArray) SumRange(left int, right int) int {
 }
 ```
 
+## 126. 3的幂（326）
+
+给定一个整数，写一个函数来判断它是否是 3 的幂次方。如果是，返回 `true` ；否则，返回 `false` 。
+
+整数 `n` 是 3 的幂次方需满足：存在整数 `x` 使得 `n == 3x`。
+
+```go
+func isPowerOfThree(n int) bool {
+    for n > 0 && n % 3 == 0 {
+        n = n / 3
+    }
+    return n == 1
+}
+```
+
+或者有一种更加巧妙的办法：在 32 位有符号数中，最大的 3 的幂是 3^19 = 1162261467。所以我们只需要判断 n 是否是 3^19 的约数即可：
+
+```go
+func isPowerOfThree(n int) bool {
+    return n > 0 && 1162261467 % n == 0
+}
+```
+
+## 127. 4的幂（342）
+
+给定一个整数，写一个函数来判断它是否是 4 的幂次方。如果是，返回 `true` ；否则，返回 `false` 。
+
+整数 `n` 是 4 的幂次方需满足：存在整数 `x` 使得 `n == 4x`。
+
+```go
+func isPowerOfFour(n int) bool {
+    // 三个条件：
+    // 1. 大于 0
+    // 2. 整个数字中只能有一个 1 存在（是2的幂）
+    // 3. 这个 1 必须是在奇数位的位数上
+    return n>0 && n&(n-1)==0 && n&0x55555555!=0
+}
+```
+
+## 128. 两个数组的交集II（350）
+
+给你两个整数数组 `nums1` 和 `nums2` ，请你以数组形式返回两数组的交集。返回结果中每个元素出现的次数，应与元素在两个数组中都出现的次数一致（如果出现次数不一致，则考虑取较小值）。可以不考虑输出结果的顺序。
+
+```go
+func intersect(nums1 []int, nums2 []int) []int {
+    sort.Ints(nums1)
+    sort.Ints(nums2)
+    i := 0
+    j := 0
+    res := make([]int, 0)
+    for i < len(nums1) && j < len(nums2) {
+        if nums1[i] < nums2[j] {
+            i++
+        } else if nums1[i] > nums2[j] {
+            j++
+        } else {
+            res = append(res, nums1[i])
+            i++
+            j++
+        }
+    }
+    return res
+}
+```
+
 
 
 
@@ -150,9 +215,6 @@ func (this *NumArray) SumRange(left int, right int) int {
 
 
 待做题目：
-326
-342
-350
 374
 383
 389
