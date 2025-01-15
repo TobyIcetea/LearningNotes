@@ -515,10 +515,9 @@ func numberOfPairs(nums1 []int, nums2 []int, k int) int {
 ```go
 func binarySearchFirstGreater(nums []int, target int) int {
 	left, right := 0, len(nums)-1
-	mid := -1
 
 	for left <= right {
-		mid = left + (right-left)/2
+        mid := left + (right-left)/2
 
 		if nums[mid] > target {
 			right = mid - 1   // 继续在左半部分查找是否有更靠前的符合条件的元素
@@ -527,7 +526,7 @@ func binarySearchFirstGreater(nums []int, target int) int {
 		}
 	}
 
-	return result
+	return left
 }
 ```
 
@@ -536,10 +535,9 @@ func binarySearchFirstGreater(nums []int, target int) int {
 ```go
 func binarySearchFirstGreaterOrEqual(nums []int, target int) int {
 	left, right := 0, len(nums)-1
-	mid := -1
 
 	for left <= right {
-		mid = left + (right-left)/2
+        mid := left + (right-left)/2
 
 		if nums[mid] >= target {
 			right = mid - 1   // 继续在左半部分查找是否有更靠前的符合条件的元素
@@ -548,7 +546,7 @@ func binarySearchFirstGreaterOrEqual(nums []int, target int) int {
 		}
 	}
 
-	return result
+	return left
 }
 ```
 
@@ -557,10 +555,9 @@ func binarySearchFirstGreaterOrEqual(nums []int, target int) int {
 ```go
 func binarySearchLastLess(nums []int, target int) int {
 	left, right := 0, len(nums)-1
-	mid := -1
 
 	for left <= right {
-		mid = left + (right-left)/2
+        mid := left + (right-left)/2
 
 		if nums[mid] < target {
 			left = mid + 1     // 继续在右半部分查找是否有更靠后的符合条件的元素
@@ -569,7 +566,7 @@ func binarySearchLastLess(nums []int, target int) int {
 		}
 	}
 
-	return result
+	return right
 }
 ```
 
@@ -578,10 +575,9 @@ func binarySearchLastLess(nums []int, target int) int {
 ```go
 func binarySearchLastLessOrEqual(nums []int, target int) int {
 	left, right := 0, len(nums)-1
-	mid := -1
 
 	for left <= right {
-		mid = left + (right-left)/2
+        mid := left + (right-left)/2
 
 		if nums[mid] <= target {
 			left = mid + 1     // 继续在右半部分查找是否有更靠后的符合条件的元素
@@ -590,7 +586,7 @@ func binarySearchLastLessOrEqual(nums []int, target int) int {
 		}
 	}
 
-	return result
+	return right
 }
 ```
 
@@ -599,7 +595,9 @@ func binarySearchLastLessOrEqual(nums []int, target int) int {
 对我之后再写二分查找的时候有以下一些启示：
 
 - 做 if 条件判断的时候，尽量写 `nums[mid] > target` 这种，而不是 `target > nums[mid]`。也就是说，把 `nums[mid]` 放在左边比较好。
-- 直接将 `left`、`right`、`mid` 三个变量定义到一起，返回的时候直接返回 `mid` 就行。
+- 查找第一个大于或大于等于某值的元素 --> 返回 `left`。
+- 查找最后一个小于或小于等于某值的元素 --> 返回 `right`。
+- 因为在二分查找中，`left` 和 `right` 的位置分别代表了符合条件的第一个和最后一个元素的潜在位置。
 
 ## 68. 错误的集合（645）
 
