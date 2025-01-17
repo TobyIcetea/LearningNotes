@@ -690,6 +690,105 @@ func constructRectangle(area int) []int {
 }
 ```
 
+## 142. 提莫攻击（495）
+
+在《英雄联盟》的世界中，有一个叫 “提莫” 的英雄。他的攻击可以让敌方英雄艾希（编者注：寒冰射手）进入中毒状态。
+
+当提莫攻击艾希，艾希的中毒状态正好持续 `duration` 秒。
+
+正式地讲，提莫在 `t` 发起攻击意味着艾希在时间区间 `[t, t + duration - 1]`（含 `t` 和 `t + duration - 1`）处于中毒状态。如果提莫在中毒影响结束 **前** 再次攻击，中毒状态计时器将会 **重置** ，在新的攻击之后，中毒影响将会在 `duration` 秒后结束。
+
+给你一个 **非递减** 的整数数组 `timeSeries` ，其中 `timeSeries[i]` 表示提莫在 `timeSeries[i]` 秒时对艾希发起攻击，以及一个表示中毒持续时间的整数 `duration` 。
+
+返回艾希处于中毒状态的 **总** 秒数。
+
+```go
+func findPoisonedDuration(timeSeries []int, duration int) int {
+    lastEnd := 0
+    res := 0
+    for _, begin := range timeSeries {
+        end := begin + duration
+        begin = max(begin, lastEnd)
+        res += end - begin
+        lastEnd = end
+    }
+    return res
+}
+```
+
+## 143. 键盘行（500）
+
+给你一个字符串数组 `words` ，只返回可以使用在 **美式键盘** 同一行的字母打印出来的单词。键盘如下图所示。
+
+**请注意**，字符串 **不区分大小写**，相同字母的大小写形式都被视为在同一行**。**
+
+**美式键盘** 中：
+
+- 第一行由字符 `"qwertyuiop"` 组成。
+- 第二行由字符 `"asdfghjkl"` 组成。
+- 第三行由字符 `"zxcvbnm"` 组成。
+
+![American keyboard](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/keyboard.png)
+
+```go
+func findWords(words []string) []string {
+	line1 := "qwertyuiop"
+	line2 := "asdfghjkl"
+	line3 := "zxcvbnm"
+
+	var lowercase func(b byte) byte
+	lowercase = func(b byte) byte {
+		if b >= 'A' && b <= 'Z' {
+			return b + byte(32)
+		}
+		return b
+	}
+
+	var contains func(b byte) int
+	contains = func(b byte) int {
+		for i := 0; i < 10; i++ {
+			if b == line1[i] {
+				return 1
+			}
+		}
+		for i := 0; i < 9; i++ {
+			if b == line2[i] {
+				return 2
+			}
+		}
+		for i := 0; i < 7; i++ {
+			if b == line3[i] {
+				return 3
+			}
+		}
+		return -1
+	}
+
+	var res []string
+
+outer:
+	for _, word := range words {
+		first := contains(lowercase(word[0]))
+		for _, c := range word {
+			if contains(lowercase(byte(c))) != first {
+                continue outer
+			}
+		}
+        res = append(res, word)
+	}
+
+	return res
+}
+```
+
+题目不难，就是麻烦。
+
+感觉自己后期的代码写得挺答辩的。主要是字符串处理这块儿。之后可以给自己加一个规范，比如说处理字符串的时候，之后就不要用 byte 了，字符都用 rune 来遍历。
+
+另一个是，go 是强类型语言，如果函数的参数类型是 byte，传入的时候就不能用 rune；如果参数设置的是 rune，传入的时候就不能用 byte。包括 math 包里面的 `Sqrt()` 之类的函数也是一样的，float64 和 int 分得比较开，比 C++ 的类型要强。所以为了规范，之后遍历字符串的时候就都用 rune 来操作了。
+
+
+
 
 
 
@@ -699,8 +798,6 @@ func constructRectangle(area int) []int {
 
 
 待做题目：
-495
-500
 504
 506
 507
