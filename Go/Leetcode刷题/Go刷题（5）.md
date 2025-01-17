@@ -787,7 +787,44 @@ outer:
 
 另一个是，go 是强类型语言，如果函数的参数类型是 byte，传入的时候就不能用 rune；如果参数设置的是 rune，传入的时候就不能用 byte。包括 math 包里面的 `Sqrt()` 之类的函数也是一样的，float64 和 int 分得比较开，比 C++ 的类型要强。所以为了规范，之后遍历字符串的时候就都用 rune 来操作了。
 
+## 144. 七进制数（504）
 
+给定一个整数 `num`，将其转化为 **7 进制**，并以字符串形式输出。
+
+```go
+func convertToBase7(num int) string {
+    if num == 0 {
+        return "0"
+    }
+
+    var flag bool
+    if num < 0 {
+        flag = true  // flag 表示是不是负数
+        num *= -1
+    }
+
+    var res []rune
+
+    for num != 0 {
+        remainder := num % 7
+        num = num / 7
+        res = append(res, rune('0' + remainder))
+    }
+    if flag {
+        res = append(res, '-')
+    }
+
+    left := 0
+    right := len(res) - 1
+    for left < right {
+        res[left], res[right] = res[right], res[left]
+        left++
+        right--
+    }
+
+    return string(res)
+}
+```
 
 
 
