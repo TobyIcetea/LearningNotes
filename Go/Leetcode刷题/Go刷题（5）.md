@@ -826,6 +826,88 @@ func convertToBase7(num int) string {
 }
 ```
 
+## 145. 相对名次（506）
+
+给你一个长度为 `n` 的整数数组 `score` ，其中 `score[i]` 是第 `i` 位运动员在比赛中的得分。所有得分都 **互不相同** 。
+
+运动员将根据得分 **决定名次** ，其中名次第 `1` 的运动员得分最高，名次第 `2` 的运动员得分第 `2` 高，依此类推。运动员的名次决定了他们的获奖情况：
+
+- 名次第 `1` 的运动员获金牌 `"Gold Medal"` 。
+- 名次第 `2` 的运动员获银牌 `"Silver Medal"` 。
+- 名次第 `3` 的运动员获铜牌 `"Bronze Medal"` 。
+- 从名次第 `4` 到第 `n` 的运动员，只能获得他们的名次编号（即，名次第 `x` 的运动员获得编号 `"x"`）。
+
+使用长度为 `n` 的数组 `answer` 返回获奖，其中 `answer[i]` 是第 `i` 位运动员的获奖情况。
+
+```go
+import (
+    "sort"
+    "strconv"
+)
+
+func findRelativeRanks(score []int) []string {
+    sorted := append([]int{}, score...)
+    sort.Slice(sorted, func(i, j int) bool {
+        return sorted[i] > sorted[j]
+    })
+
+    var getIndex func(value int) int
+    getIndex = func(value int) int {
+        left := 0
+        right := len(sorted) - 1
+        for left <= right {
+            mid := (left + right) / 2
+            if sorted[mid] < value {
+                right = mid - 1
+            } else if sorted[mid] > value {
+                left = mid + 1
+            } else {
+                return mid
+            }
+        }
+        return -1
+    }
+
+    var res []string
+
+    for _, num := range score {
+        index := getIndex(num) + 1
+        if index == 1 {
+            res = append(res, "Gold Medal")
+        } else if index == 2 {
+            res = append(res, "Silver Medal")
+        } else if index == 3 {
+            res = append(res, "Bronze Medal")
+        } else {
+            res = append(res, strconv.Itoa(index))
+        }
+    }
+
+    return res
+}
+```
+
+知道了两个点：
+
+- Go 语言中如何使用自定义排序：
+
+    ```go
+    sort.Slice(arr, func(i, j int) bool {
+        // 排序规则...
+    })
+    ```
+
+- Go 语言中如何复制一个数组：
+
+    ```go
+    arr1 := []int{1, 2, 3, 4, 5}
+    arr2 := append([]int{}, arr1...)
+    ```
+
+
+
+
+
 
 
 
@@ -835,8 +917,6 @@ func convertToBase7(num int) string {
 
 
 待做题目：
-504
-506
 507
 521
 530
