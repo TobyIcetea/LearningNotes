@@ -904,7 +904,164 @@ func findRelativeRanks(score []int) []string {
     arr2 := append([]int{}, arr1...)
     ```
 
-## 146. 
+## 146. 完美数（507）
+
+对于一个 **正整数**，如果它和除了它自身以外的所有 **正因子** 之和相等，我们称它为 **「完美数」**。
+
+给定一个 **整数** `n`， 如果是完美数，返回 `true`；否则返回 `false`。
+
+```go
+import "math"
+
+func checkPerfectNumber(num int) bool {
+    if num == 1 {
+        return false
+    }
+    sum := 1
+    sqrtNum := int(math.Sqrt(float64(num)))
+    for i := 2; i <= sqrtNum; i++ {
+        if num % i == 0 {
+            sum += i + (num / i)
+        }
+    }
+    return sum == num
+}
+```
+
+## 147. 最长特殊序列I（521）
+
+给你两个字符串 `a` 和 `b`，请返回 *这两个字符串中 **最长的特殊序列*** 的长度。如果不存在，则返回 `-1` 。
+
+**「最长特殊序列」** 定义如下：该序列为某字符串独有的最长子序列（即不能是其他字符串的子序列）。
+
+字符串 `s` 的子序列是在从 `s` 中删除任意数量的字符后可以获得的字符串。
+
+- 例如，"abc" 是 "aebdc" 的子序列，因为删除 "aebdc" 中斜体加粗的字符可以得到 "abc" 。 "aebdc" 的子序列还包括 "aebdc" 、 "aeb" 和 "" (空字符串)。
+
+```go
+func findLUSlength(a string, b string) int {
+    if a == b {
+        return -1
+    } else {
+        return max(len(a), len(b))
+    }
+}
+```
+
+## 148. 二叉树的最小绝对差（530）
+
+给你一个二叉搜索树的根节点 `root` ，返回 **树中任意两不同节点值之间的最小差值** 。
+
+差值是一个正数，其数值等于两值之差的绝对值。
+
+```go
+import "math"
+
+func getMinimumDifference(root *TreeNode) int {
+    minDiff := math.MaxInt64
+    first := true
+    pre := -1
+
+    var inorder func(root *TreeNode)
+    inorder = func(root *TreeNode) {
+        if root == nil {
+            return
+        }
+        inorder(root.Left)
+
+        if first {
+            first = false
+        } else {
+            minDiff = min(minDiff, root.Val - pre)
+        }
+        pre = root.Val
+
+        inorder(root.Right)
+    }
+
+    inorder(root)
+    
+    return minDiff
+}
+```
+
+## 149. 学生出勤记录I（551）
+
+给你一个字符串 `s` 表示一个学生的出勤记录，其中的每个字符用来标记当天的出勤情况（缺勤、迟到、到场）。记录中只含下面三种字符：
+
+- `'A'`：Absent，缺勤
+- `'L'`：Late，迟到
+- `'P'`：Present，到场
+
+如果学生能够 **同时** 满足下面两个条件，则可以获得出勤奖励：
+
+- 按 **总出勤** 计，学生缺勤（`'A'`）**严格** 少于两天。
+- 学生 **不会** 存在 **连续** 3 天或 **连续** 3 天以上的迟到（`'L'`）记录。
+
+如果学生可以获得出勤奖励，返回 `true` ；否则，返回 `false` 。
+
+```go
+func checkRecord(s string) bool {
+    countOfAbsent := 0
+    countofLate := 0
+    // 用滑动窗口记录 L 的个数
+    for right := 0; right < len(s); right++ {
+        if s[right] == 'A' {
+            countOfAbsent++
+            if countOfAbsent == 2 {
+                return false
+            }
+        } else if s[right] == 'L' {
+            countofLate++
+        }
+        if right - 3 >= 0 {
+            // left 就是 right - 3
+            if s[right - 3] == 'L' {
+                countofLate--
+            }
+        }
+        if countofLate == 3 {
+            return false
+        }
+    }
+    return true
+}
+```
+
+## 150. 反转字符串中的单词III（557）
+
+给定一个字符串 `s` ，你需要反转字符串中每个单词的字符顺序，同时仍保留空格和单词的初始顺序。
+
+```go
+func reverseWords(s string) string {
+    left := 0
+    right := 0
+
+    bytes := []byte(s)
+    var reverseLeftToRightSub1 func()
+    reverseLeftToRightSub1 = func() {
+        l := left
+        r := right - 1
+        for l < r {
+            bytes[l], bytes[r] = bytes[r], bytes[l]
+            l++
+            r--
+        }
+    }
+
+    for right < len(s) {
+        if s[right] == ' ' {
+            reverseLeftToRightSub1()
+            left = right + 1           
+        }
+        right++
+    }
+
+    reverseLeftToRightSub1()
+
+    return string(bytes)
+}
+```
 
 
 
@@ -913,36 +1070,6 @@ func findRelativeRanks(score []int) []string {
 
 
 
-
-
-
-待做题目：
-507
-521
-530
-551
-557
-559
-563
-566
-572
-575
-589
-590
-594
-598
-599
-617
-637
-653
-657
-661
-671
-680
-682
-693
-696
-700
 
 
 
