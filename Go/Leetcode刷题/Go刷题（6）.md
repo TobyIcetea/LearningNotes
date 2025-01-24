@@ -160,6 +160,123 @@ func isSubtree(root *TreeNode, subRoot *TreeNode) bool {
 - 或者，`root1` 是 `root2.Left` 的子树
 - 或者，`root1` 是 `root2.Right` 的子树
 
+## 155. 分糖果（575）
+
+Alice 有 `n` 枚糖，其中第 `i` 枚糖的类型为 `candyType[i]` 。Alice 注意到她的体重正在增长，所以前去拜访了一位医生。
+
+医生建议 Alice 要少摄入糖分，只吃掉她所有糖的 `n / 2` 即可（`n` 是一个偶数）。Alice 非常喜欢这些糖，她想要在遵循医生建议的情况下，尽可能吃到最多不同种类的糖。
+
+给你一个长度为 `n` 的整数数组 `candyType` ，返回： Alice *在仅吃掉 `n / 2` 枚糖的情况下，可以吃到糖的 **最多** 种类数*。
+
+```go
+func distributeCandies(candyType []int) int {
+    typeSet := make(map[int]struct{})
+    for _, t := range candyType {
+        typeSet[t] = struct{}{}
+    }
+    return min(len(typeSet), len(candyType) / 2)
+}
+```
+
+## 156. N叉树的前序遍历（589）
+
+给定一个 n 叉树的根节点 `root` ，返回 *其节点值的 **前序遍历*** 。
+
+n 叉树 在输入中按层序遍历进行序列化表示，每组子节点由空值 `null` 分隔。
+
+```go
+func preorder(root *Node) []int {
+    if root == nil {
+        return []int{}
+    }
+    res := []int{root.Val}
+    for _, node := range root.Children {
+        res = append(res, preorder(node)...)
+    }
+    return res
+}
+```
+
+## 157. N叉树的后序遍历（590）
+
+给定一个 n 叉树的根节点 `root` ，返回 *其节点值的 **后序遍历*** 。
+
+n 叉树 在输入中按层序遍历进行序列化表示，每组子节点由空值 `null` 分隔（请参见示例）。
+
+```go
+func postorder(root *Node) []int {
+    if root == nil {
+        return []int{}
+    }
+    var res []int
+
+    for _, child := range root.Children {
+        res = append(res, postorder(child)...)
+    }
+
+    res = append(res, root.Val)
+
+    return res
+}
+```
+
+## 158. 最长和谐子序列（594）
+
+和谐数组是指一个数组里元素的最大值和最小值之间的差别 **正好是 `1`** 。
+
+给你一个整数数组 `nums` ，请你在所有可能的子序列中找到最长的和谐子序列的长度。
+
+数组的 **子序列** 是一个由数组派生出来的序列，它可以通过删除一些元素或不删除元素、且不改变其余元素的顺序而得到。
+
+```go
+func findLHS(nums []int) int {
+    res := 0
+
+    counts := make(map[int]int)
+    for _, num := range nums {
+        counts[num]++
+    }
+    for num, count := range counts {
+        if plusOneCount, ok := counts[num + 1]; ok {
+            res = max(res, count + plusOneCount)
+        }
+    }
+
+    return res
+}
+```
+
+## 159. 区间加法II（598）
+
+给你一个 `m x n` 的矩阵 `M` 和一个操作数组 `op` 。矩阵初始化时所有的单元格都为 `0` 。`ops[i] = [ai, bi]` 意味着当所有的 `0 <= x < ai` 和 `0 <= y < bi` 时， `M[x][y]` 应该加 1。
+
+在 *执行完所有操作后* ，计算并返回 *矩阵中最大整数的个数* 。
+
+```go
+func maxCount(m int, n int, ops [][]int) int {
+    minRow := 0
+    minColumn := 0
+    first := true
+
+    for _, arr := range ops {
+        if first {
+            minRow = arr[0]
+            minColumn = arr[1]
+            first = false
+        } else {
+            minRow = min(minRow, arr[0])
+            minColumn = min(minColumn, arr[1])
+        }
+    }
+
+    if first {
+        return m * n
+    }
+    
+    return minRow * minColumn
+}
+```
+
 
 
 
@@ -169,11 +286,6 @@ func isSubtree(root *TreeNode, subRoot *TreeNode) bool {
 
 
 待做题目：
-575
-589
-590
-594
-598
 599
 617
 637
