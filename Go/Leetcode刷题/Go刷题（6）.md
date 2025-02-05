@@ -277,7 +277,109 @@ func maxCount(m int, n int, ops [][]int) int {
 }
 ```
 
+## 160. 两个列表的最小索引总和（599）
 
+假设 Andy 和 Doris 想在晚餐时选择一家餐厅，并且他们都有一个表示最喜爱餐厅的列表，每个餐厅的名字用字符串表示。
+
+你需要帮助他们用**最少的索引和**找出他们**共同喜爱的餐厅**。 如果答案不止一个，则输出所有答案并且不考虑顺序。 你可以假设答案总是存在。
+
+```go
+func findRestaurant(list1 []string, list2 []string) []string {
+    var res []string
+    var resIndexSum int
+    var first bool = true
+
+    // 先将 list1 中的数据按照名字 - 索引的格式存储下来
+    strIndexMap1 := make(map[string]int)
+    for i, str := range list1 {
+        strIndexMap1[str] = i
+    }
+
+    // 然后看 list2 中的元素
+    for index2, str := range list2 {
+        if index1, ok := strIndexMap1[str]; ok {
+            indexSum := index1 + index2
+            if first {
+                res = []string{str}
+                resIndexSum = indexSum
+                first = false
+            } else {
+                if indexSum == resIndexSum {
+                    res = append(res, str)
+                } else if indexSum < resIndexSum {
+                    resIndexSum = indexSum
+                    res = []string{str}
+                }
+            }
+        }
+    }
+
+    return res
+}
+```
+
+## 161. 合并二叉树（617）
+
+给你两棵二叉树： `root1` 和 `root2` 。
+
+想象一下，当你将其中一棵覆盖到另一棵之上时，两棵树上的一些节点将会重叠（而另一些不会）。你需要将这两棵树合并成一棵新二叉树。合并的规则是：如果两个节点重叠，那么将这两个节点的值相加作为合并后节点的新值；否则，**不为** null 的节点将直接作为新二叉树的节点。
+
+返回合并后的二叉树。
+
+**注意:** 合并过程必须从两个树的根节点开始。
+
+```go
+func mergeTrees(root1 *TreeNode, root2 *TreeNode) *TreeNode {
+    if root1 == nil && root2 == nil {
+        return nil
+    }
+    if root1 == nil && root2 != nil {
+        return root2
+    }
+    if root1 != nil && root2 == nil {
+        return root1
+    }
+    res := &TreeNode{Val: root1.Val + root2.Val}
+    res.Left = mergeTrees(root1.Left, root2.Left)
+    res.Right = mergeTrees(root1.Right, root2.Right)
+    return res
+}
+```
+
+## 162. 二叉树的层平均值（637）
+
+给定一个非空二叉树的根节点 `root` , 以数组的形式返回每一层节点的平均值。与实际答案相差 `10-5` 以内的答案可以被接受。
+
+```go
+func averageOfLevels(root *TreeNode) []float64 {
+    var res []float64
+
+    // 层序遍历，使用 queue
+    queue := []*TreeNode{root}
+    for len(queue) != 0 {
+        curSize := len(queue)
+        valSum := 0
+        valCount := 0
+        for i := 0; i < curSize; i++ {
+            node := queue[0]
+
+            valSum += node.Val
+            valCount++
+
+            queue = queue[1:]
+            if node.Left != nil {
+                queue = append(queue, node.Left)
+            }
+            if node.Right != nil {
+                queue = append(queue, node.Right)
+            }
+        }
+        res = append(res, float64(valSum) / float64(valCount))
+    }
+
+    return res
+}
+```
 
 
 
@@ -286,9 +388,6 @@ func maxCount(m int, n int, ops [][]int) int {
 
 
 待做题目：
-599
-617
-637
 653
 657
 661
