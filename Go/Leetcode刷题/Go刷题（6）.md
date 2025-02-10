@@ -381,6 +381,73 @@ func averageOfLevels(root *TreeNode) []float64 {
 }
 ```
 
+## 163. 两数之和IV-输入二叉搜索树（653）
+
+给定一个二叉搜索树 `root` 和一个目标结果 `k`，如果二叉搜索树中存在两个元素且它们的和等于给定的目标结果，则返回 `true`。
+
+```go
+func findTarget(root *TreeNode, k int) bool {
+    nums := make([]int, 0)
+    var dfs func(root *TreeNode)
+    dfs = func(root *TreeNode) {
+        if root == nil {
+            return
+        }
+        dfs(root.Left)
+        nums = append(nums, root.Val)
+        dfs(root.Right)
+    }
+
+    dfs(root)
+
+    i := 0
+    j := len(nums) - 1
+    for i < j {
+        if nums[i] + nums[j] > k {
+            j--
+        } else if nums[i] + nums[j] < k {
+            i++
+        } else {
+            return true
+        }
+    }
+
+    return false
+}
+```
+
+## 164. 机器人能否返回原点（657）
+
+在二维平面上，有一个机器人从原点 `(0, 0)` 开始。给出它的移动顺序，判断这个机器人在完成移动后是否在 **`(0, 0)` 处结束**。
+
+移动顺序由字符串 `moves` 表示。字符 `move[i]` 表示其第 `i` 次移动。机器人的有效动作有 `R`（右），`L`（左），`U`（上）和 `D`（下）。
+
+如果机器人在完成所有动作后返回原点，则返回 `true`。否则，返回 `false`。
+
+**注意：**机器人“面朝”的方向无关紧要。 `“R”` 将始终使机器人向右移动一次，`“L”` 将始终向左移动等。此外，假设每次移动机器人的移动幅度相同。
+
+```go
+func judgeCircle(moves string) bool {
+    vertical := 0
+    horizon := 0
+    
+    for _, move := range moves {
+        switch move {
+        case 'U':
+            vertical++
+        case 'D':
+            vertical--
+        case 'L':
+            horizon--
+        case 'R':
+            horizon++
+        }
+    }
+
+    return vertical == 0 && horizon == 0
+}
+```
+
 
 
 
@@ -388,8 +455,6 @@ func averageOfLevels(root *TreeNode) []float64 {
 
 
 待做题目：
-653
-657
 661
 671
 680
