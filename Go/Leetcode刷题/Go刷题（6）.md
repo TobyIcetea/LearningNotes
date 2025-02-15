@@ -448,6 +448,223 @@ func judgeCircle(moves string) bool {
 }
 ```
 
+## 165. 图片平滑器（661）
+
+**图像平滑器** 是大小为 `3 x 3` 的过滤器，用于对图像的每个单元格平滑处理，平滑处理后单元格的值为该单元格的平均灰度。
+
+每个单元格的 **平均灰度** 定义为：该单元格自身及其周围的 8 个单元格的平均值，结果需向下取整。（即，需要计算蓝色平滑器中 9 个单元格的平均值）。
+
+如果一个单元格周围存在单元格缺失的情况，则计算平均灰度时不考虑缺失的单元格（即，需要计算红色平滑器中 4 个单元格的平均值）。
+
+![img](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/smoother-grid.jpg)
+
+给你一个表示图像灰度的 `m x n` 整数矩阵 `img` ，返回对图像的每个单元格平滑处理后的图像 。
+
+```go
+func imageSmoother(img [][]int) [][]int {
+	m := len(img)
+	n := len(img[0])
+
+	res := make([][]int, m)
+	for i := 0; i < m; i++ {
+		res[i] = make([]int, n)
+	}
+
+	for i := 0; i < m; i++ {
+		for j := 0; j < n; j++ {
+			sum := 0
+			count := 0
+
+			if i-1 >= 0 && j-1 >= 0 {
+				sum += img[i-1][j-1]
+                count++
+			}
+            if i-1 >= 0 {
+				sum += img[i-1][j]
+                count++
+			}
+            if i-1 >= 0 && j+1 < n  {
+				sum += img[i-1][j+1]
+                count++
+			}
+
+            if j-1 >= 0 {
+				sum += img[i][j-1]
+                count++
+			}
+			sum += img[i][j]
+            count++
+            if j+1 < n {
+				sum += img[i][j+1]
+                count++
+			}
+
+            if i+1 < m && j-1 >= 0 {
+				sum += img[i+1][j-1]
+                count++
+			}
+            if i+1 < m {
+				sum += img[i+1][j]
+                count++
+			}
+            if i+1 < m && j+1 < n {
+				sum += img[i+1][j+1]
+                count++
+			}
+
+            res[i][j] = sum / count
+		}
+	}
+
+    return res
+}
+```
+
+## 166. 二叉树中第二小的节点（671）
+
+给定一个非空特殊的二叉树，每个节点都是正数，并且每个节点的子节点数量只能为 `2` 或 `0`。如果一个节点有两个子节点的话，那么该节点的值等于两个子节点中较小的一个。
+
+更正式地说，即 `root.val = min(root.left.val, root.right.val)` 总成立。
+
+给出这样的一个二叉树，你需要输出所有节点中的 **第二小的值** 。
+
+如果第二小的值不存在的话，输出 -1 **。**
+
+```go
+func findSecondMinimumValue(root *TreeNode) int {
+    minValue := root.Val
+    res := -1
+
+    var dfs func(root *TreeNode)
+    dfs = func(root *TreeNode) {
+        if root == nil {
+            return
+        }
+        if root.Val != minValue {
+            // 此时只需要判断一下这个 root 就行了，root 再往下的不可能成为答案
+            if res == -1 {
+                res = root.Val
+            } else {
+                res = min(res, root.Val)
+            }
+            return
+        }
+        dfs(root.Left)
+        dfs(root.Right)
+    }
+
+    dfs(root)
+
+    return res
+}
+```
+
+## 167. 验证回文串II（680）
+
+给你一个字符串 `s`，**最多** 可以从中删除一个字符。
+
+请你判断 `s` 是否能成为回文字符串：如果能，返回 `true` ；否则，返回 `false` 。
+
+```go
+func validPalindrome(s string) bool {
+    // 遇到不匹配的字符，要么是左边那个不要了，要么是右边那个不要了
+    i := 0
+    j := len(s) - 1
+
+    var isPalindrome func(left int, right int) bool
+    isPalindrome = func(left int, right int) bool {
+        for left < right {
+            if s[left] != s[right] {
+                return false
+            }
+            left++
+            right--
+        }
+        return true
+    }
+
+    for i < j {
+        if s[i] == s[j] {
+            i++
+            j--
+        } else {
+            return isPalindrome(i + 1, j) || isPalindrome(i, j - 1) 
+        }
+    }
+    return true
+}
+```
+
+## 168. 棒球比赛（682）
+
+你现在是一场采用特殊赛制棒球比赛的记录员。这场比赛由若干回合组成，过去几回合的得分可能会影响以后几回合的得分。
+
+比赛开始时，记录是空白的。你会得到一个记录操作的字符串列表 `ops`，其中 `ops[i]` 是你需要记录的第 `i` 项操作，`ops` 遵循下述规则：
+
+1. 整数 `x` - 表示本回合新获得分数 `x`
+2. `"+"` - 表示本回合新获得的得分是前两次得分的总和。题目数据保证记录此操作时前面总是存在两个有效的分数。
+3. `"D"` - 表示本回合新获得的得分是前一次得分的两倍。题目数据保证记录此操作时前面总是存在一个有效的分数。
+4. `"C"` - 表示前一次得分无效，将其从记录中移除。题目数据保证记录此操作时前面总是存在一个有效的分数。
+
+请你返回记录中所有得分的总和。
+
+```go
+import "strconv"
+
+func calPoints(operations []string) int {
+    res := 0
+
+    nums := make([]int, 0)
+    for _, operation := range operations {
+        if operation == "+" {
+            nums = append(nums, nums[len(nums) - 1] + nums[len(nums) - 2])
+        } else if operation == "D" {
+            nums = append(nums, nums[len(nums) - 1] * 2)
+        } else if operation == "C" {
+            nums = nums[:len(nums) - 1]
+        } else {
+            num, _ := strconv.Atoi(operation)
+            nums = append(nums, num)
+        }
+    }
+    for _, num := range nums {
+        res += num
+    }
+
+    return res
+}
+```
+
+## 169. 交替位二进制数（693）
+
+给定一个正整数，检查它的二进制表示是否总是 0、1 交替出现：换句话说，就是二进制表示中相邻两位的数字永不相同。
+
+```go
+func hasAlternatingBits(n int) bool {
+	if n&1 == 1 {
+		for n != 0 && n != 1 {
+			if n&1 != 1 || n&2 != 0 {
+				return false
+			}
+			n >>= 2
+		}
+        return n == 1
+	} else {
+        for n != 0 && n != 1 {
+			if n&1 != 0 || n&2 != 2 {  // 做题的时候在这里出问题了
+				return false
+			}
+			n >>= 2
+		}
+        return n == 0
+    }
+}
+```
+
+做题的时候一开始提交总是不过，还使用 Goland 调试了一下。后来发现问题出在了：`n&2 != 2` 这个语句上。
+
+这里我本来想表达的意思是，判断一下 n 的第 2 位，要求 n 的第 2 位不能是 1，所以一开始我一直写的都是 `n&2 != 1`。但是实际上，如果 n 的第 2 位是 1，这样相与之后的结果就是 `10b`（二进制），所对应的数字是 2。
+
 
 
 
@@ -455,11 +672,6 @@ func judgeCircle(moves string) bool {
 
 
 待做题目：
-661
-671
-680
-682
-693
 696
 700
 
