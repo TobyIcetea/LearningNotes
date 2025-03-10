@@ -125,6 +125,140 @@ yum makecache
 yum repolist
 ```
 
+## 4. Centos 内核升级
+
+（这部分按理来说是可行的，但是实践没有成功。原因可能是官网没有继续维护 Centos7 那个目录了。）
+
+Centos 7 默认的内核是 3.10.0，为了让它支持更多 linux 内核的新功能，我们可以尝试升级 Centos 的内核。
+
+首先，安装 perl 工具包：
+
+```bash
+yum install -y perl
+```
+
+安装 ELRepo：
+
+```bash
+# 从 ELRepo 官网导入其 GPG 公钥，用于验证从 RLRepo 仓库下载的 RPM 包的签名。
+# 确保软件包的来源和完整性，防止恶意篡改。
+rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+# 使用 yum 包管理器安装 ELRepo 仓库的 RPM 包。
+# 这里安装的是 ELRepo 仓库的 release 文件，适用于 CentOS/RHEL 7 系统。
+yum install -y https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm
+```
+
+接下来是换源，这次我们换成清华的源：
+
+```bash
+# 备份
+cp /etc/yum.repos.d/elrepo.repo /etc/yum.repos.d/elrepo.repo.bak
+
+# 在 mirrorlist= 开头的行前面加 # 注释掉；
+# 将 http://elrepo.org/linux 替换为 https://mirrors.tuna.tsinghua.edu.cn/elrepo
+sed -i '/^mirrorlist/s/^/# /' /etc/yum.repos.d/elrepo.repo
+sed -i 's|http://elrepo.org/linux|https://mirrors.tuna.tsinghua.edu.cn/elrepo|g' /etc/yum.repos.d/elrepo.repo
+```
+
+查看内核版本列表：
+
+```bash
+yum --disablerepo="*" --enablerepo="elrepo-kernel" list avaiable
+```
+
+安装：
+
+```bash
+yum --enablerepo="elrepo-kernel" -y install kernel-ml.x86-64
+```
+
+修改启动顺序默认值：
+
+```bash
+grub2-set-default 0
+```
+
+产生 grub 配置文件：
+
+```bash
+grub2-mkconfig -o /boot/grub/grub.cfg
+```
+
+## 5. Centos 设置 vpn 代理
+
+一般情况下我们执行 `curl google.com` 之类的命令是执行不通的。
+
+在 windows 主机中开启 clash 的局域网代理功能，并且将代理端口设置为 7890，之后可以在 linux 中配置：
+
+```bash
+vim /etc/profile
+----------------------------------------
+FLCLASH_IP="10.198.195.184"  # 这里填写自己的 windows 主机的 ip 地址
+export http_proxy="http://${FLCLASH_IP}:7890"
+export https_proxy="http://${FLCLASH_IP}:7890"
+export ftp_proxy="http://${FLCLASH_IP}:7890"
+export no_proxy="localhost,127.0.0.1"
+----------------------------------------
+
+# 让配置文件生效
+source /etc/profile
+```
+
+之后可以测试一下：
+
+```bash
+[root@toby ~]# curl google.com
+<HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
+<TITLE>301 Moved</TITLE></HEAD><BODY>
+<H1>301 Moved</H1>
+The document has moved
+<A HREF="http://www.google.com/">here</A>.
+</BODY></HTML>
+```
+
+## 6. CentosStream 静态网络设置方式
+
+新版的 Centos 不再使用老版本的更新 `/etc/sysconfig/network-scripts` 的方式，而是使用 NetworkManager 的方式。具体更新方式如下：
+
+```bash
+# 进入目录
+cd /etc/NetworkManager/system-connections/
+
+# 编辑网络配置文件，这里默认是 ens160
+vim /etc/NetworkManager/system-connections/ens160.nmconnection
+```
+
+网络配置文件的书写范例如下：
+
+```ini
+[connection]
+id=ens160
+uuid=7ca40f61-21c3-3289-91cf-bc234abc5e62
+type=ethernet
+autoconnect-priority=-999
+interface-name=ens160
+timestamp=1741401629
+
+[ethernet]
+
+[ipv4]
+address1=192.168.100.101/24
+dns=8.8.8.8;8.8.4.4;
+gateway=192.168.100.2
+ignore-auto-dns=true
+method=manual
+
+[ipv6]
+addr-gen-mode=eui64
+method=auto
+
+[proxy]
+```
+
+当然我们主要是修改其中的 ipv4 部分的内容。
+
+
+
 
 
 

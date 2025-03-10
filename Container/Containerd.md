@@ -245,6 +245,150 @@ nerdctl exec -it <container_name> /bin/bash
 
 只需要在前面的命令的基础上，在 `nerdctl` 后面加上一个 `--namespace <my-namespace>` 就行啦。
 
+## 4. ctr 命令使用
+
+### 4.1 镜像管理
+
+查看镜像：
+
+```bash
+ctr images ls
+```
+
+下载镜像：
+
+```bash
+ctr images pull docker.io/library/nginx:latest --hosts-dir="/etc/containerd/certs.d"
+# 说明：这里使用 ctr 命令 pull 镜像的时候，不能直接把镜像的名字写成 nginx:latest
+```
+
+镜像挂载：
+
+```bash
+ctr images mount docker.io/library/nginx:alpine /mnt
+ls /mnt		# 查看挂载
+umount /mnt	# 卸载
+```
+
+镜像导出：
+
+```bash
+ctr images export nginx.img docker.io/library/nginx:alpine
+```
+
+镜像导入：
+
+```bash
+ctr images import nginx.img
+```
+
+镜像删除（tag 删除）：
+
+```bash
+ctr images remove docker.io/library/nginx:alpine
+```
+
+镜像打 tag：
+
+```bash
+ctr images tag docker.io/library/nginx:alpine nginx:alpine
+```
+
+### 4.2 容器管理
+
+查看容器：
+
+```bash
+ctr container ls
+```
+
+查看任务：
+
+```bash
+ctr task ls
+```
+
+创建静态容器：
+
+```bash
+ctr container create docker.io/library/nginx:alpine nginx1
+```
+
+查看容器详细信息：
+
+```bash
+ctr container info nginx1
+```
+
+静态容器启动为动态容器：
+
+```bash
+ctr task start -d nginx1
+# -d 表示 daemon 或者后台的意思，否则会卡住终端
+```
+
+查看容器的进程（都是物理机的进程）：
+
+```bash
+ctr task ps nginx1
+```
+
+进入容器操作：
+
+```bash
+ctr task exec --exec-id ${RANDOM} -t nginx1 /bin/sh
+```
+
+直接运行一个动态容器：
+
+```bash
+ctr run -d --net-host docker.io/library/nginx:alpine nginx2
+# -d 代表 daemon，后台运行
+# -net-host 代表容器的 IP 就是宿主机的 IP（相当于 docker 里的 host 类型网络）
+```
+
+暂停容器：
+
+```bash
+ctr task pause nginx2
+```
+
+恢复容器：
+
+```bash
+ctr task resume nginx2
+```
+
+停止容器：
+
+（`kill` 容器默认是给容器发送一个 `SIGTERM` 信号，通常用于优雅地终止进程。但是如果容器中的 `sh` 或者其他命令没有响应 `SIGTERM`，该信号就无法终止进程。这种情况下可以指定使用 `SIGKILL` 信号，强制终止任何进程。）
+
+```bash
+ctr task kill nginx2
+ctr task kill --signal SIGKILL busybox1
+```
+
+删除容器：
+
+```bash
+ctr task delte nginx2
+# 比如先停止 task 或者先删除 task 之后，才能删除容器
+```
+
+### 4.3 容器挂载
+
+把宿主机目录挂载到 containerd 容器中，实现容器数据持久化存储。
+
+```bash
+ctr container create docker.io/library/busybox:latest busybox3 --mount type=bind,src=/tmp,dst=/hostdir,options=rbind:rw
+```
+
+
+
+
+
+
+
 
 
 

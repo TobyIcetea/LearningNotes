@@ -70,6 +70,19 @@ node节点：   node2
     date
     ```
 
+    或者是可以使用 ntpdate 来同步时间：
+
+    ```bash
+    # 安装 ntpdate
+    yum install ntpdate
+    # 写入 crontab 计划任务
+    cat << EOF >> /etc/crontab
+    0 */1 * * * ntpdate time1.aliyun.com
+    EOF
+    # 使用 date 命令验证时间
+    date
+    ```
+
 3. 禁用 iptables 和 firewalld 服务
 
     K8s 和 docker 在运行中会产生大量的 iptables 规则，为了不让系统规则跟它们混淆，直接关闭系统的规则。
@@ -78,6 +91,7 @@ node节点：   node2
     # 关闭 firewalld 服务
     systemctl stop firewalld
     systemctl disable firewalld
+    firewall-cmd --state
     # 关闭 iptables 服务（Centos7.5 中不用做这个操作）
     systemctl stop iptables
     systemctl disable iptables
@@ -122,7 +136,8 @@ node节点：   node2
     sysctl -p
     
     # 加载网桥过滤模块
-    modprobe br_netfilter
+    # 将加载模块的配置写入文件中，这样可以永久生效
+    echo "br_netfilter" | sudo tee /etc/modules-load.d/br_netfilter.conf && sudo modprobe br_netfilter
     
     # 查看网桥过滤模块是否加载成功
     lsmod | grep br_netfilter
@@ -139,6 +154,7 @@ node节点：   node2
     yum install ipset ipvsadm -y
     
     # 添加需要加载的模块写入脚本文件
+    # ！！！如果是比较新的 Linux 内核中，可能就没有 nf_conntrack_ipv4 这个模块。因为这个模块被合并到 nf_conntrack 中了。
     cat <<EOF >  /etc/sysconfig/modules/ipvs.modules
     #!/bin/bash
     modprobe -- ip_vs
@@ -155,7 +171,7 @@ node节点：   node2
     /bin/bash /etc/sysconfig/modules/ipvs.modules
     
     # 查看对应的模块是否加载成功
-    lsmod | grep -e ip_vs -e nf_conntrack_ipv4
+    lsmod | grep -e ip_vs -e nf_conntrack
     ```
 
 8. 重启服务器。
@@ -424,11 +440,10 @@ tar zxvf cni-plugins-linux-amd64-v1.5.1.tgz -C /opt/cni/bin
 wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.31.1/crictl-v1.31.1-linux-amd64.tar.gz
 
 # 安装 crictl
-tar zxvf crictl-v1.31.1-linux-amd64.tar.gz
-mv crictl /usr/local/bin
+tar zxvf crictl-v1.31.1-linux-amd64.tar.gz -C /usr/loca/bin
 
 # 配置 crictl
-cat >>  /etc/crictl.yaml << EOF
+cat >> /etc/crictl.yaml << EOF
 runtime-endpoint: unix:///var/run/containerd/containerd.sock
 image-endpoint: unix:///var/run/containerd/containerd.sock
 timeout: 10
@@ -452,7 +467,8 @@ gpgcheck=0
 repo_gpgcheck=0
 gpgkey=http://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
        http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
-EOF
+EOF 
+# 如果是 arm64 架构的机器，要将上面的 x86_64 修改为 aarch64
 
 # 安装 kubeadm、kubelet 和 kubectl
 # 这里安装的是 kubelet 1.28.2 版本
@@ -465,6 +481,7 @@ KUBE_PROXY_MODE="ipvs"
 EOF
 
 # 设置 kubelet 开机自启动
+systemctl start kubelet
 systemctl enable kubelet
 ```
 
@@ -538,9 +555,6 @@ cgroupDriver: systemd
 ```bash
 # 下载镜像
 kubeadm config images pull --image-repository=registry.aliyuncs.com/google_containers  --kubernetes-version=v1.28.2
-
-### 这里不知道为啥还需要重新执行这个：加载网桥过滤模块
-modprobe br_netfilter
 
 # 集群初始化modprobe br_netfilter
 kubeadm init --config kubeadm.yaml
