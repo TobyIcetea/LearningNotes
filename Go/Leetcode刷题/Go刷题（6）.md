@@ -665,6 +665,222 @@ func hasAlternatingBits(n int) bool {
 
 这里我本来想表达的意思是，判断一下 n 的第 2 位，要求 n 的第 2 位不能是 1，所以一开始我一直写的都是 `n&2 != 1`。但是实际上，如果 n 的第 2 位是 1，这样相与之后的结果就是 `10b`（二进制），所对应的数字是 2。
 
+## 170. 计数二进制子串（696）
+
+给定一个字符串 `s`，统计并返回具有相同数量 `0` 和 `1` 的非空（连续）子字符串的数量，并且这些子字符串中的所有 `0` 和所有 `1` 都是成组连续的。
+
+重复出现（不同位置）的子串也要统计它们出现的次数。
+
+code1：
+
+```go
+// 使用额外空间
+func countBinarySubstrings(s string) int {
+    // arr 中存储每个元素出现的次数
+    arr := make([]int, 0)
+    
+    count := 0
+    for i, _ := range s {
+        if i == 0 {
+            count++
+        } else {
+            if s[i] == s[i - 1] {
+                count++
+            } else {
+                arr = append(arr, count)
+                count = 1
+            }
+        }
+    }
+    arr = append(arr, count)
+    
+    res := 0
+
+    for i := 1; i < len(arr); i++ {
+        res += min(arr[i], arr[i - 1])
+    }
+
+    return res
+}
+```
+
+code2：
+
+```go
+// 不使用额外空间
+func countBinarySubstrings(s string) int {
+    count := 0
+    preCount := 0  // 当前元素的前一个元素出现了多少次
+    res := 0
+    for i, _ := range s {
+        if i == 0 {
+            count++
+        } else {
+            if s[i] == s[i - 1] {
+                count++
+            } else {
+                res += min(count, preCount)
+                preCount = count
+                count = 1
+            }
+        }
+    }
+    res += min(count, preCount)
+    
+    return res
+}
+```
+
+## 171. 二叉搜索树中的搜索（700）
+
+给定二叉搜索树（BST）的根节点 `root` 和一个整数值 `val`。
+
+你需要在 BST 中找到节点值等于 `val` 的节点。 返回以该节点为根的子树。 如果节点不存在，则返回 `null` 。
+
+```go
+func searchBST(root *TreeNode, val int) *TreeNode {
+    if root == nil {
+        return nil
+    }
+    if root.Val == val {
+        return root
+    } else if root.Val > val {
+        return searchBST(root.Left, val)
+    } else {
+        return searchBST(root.Right, val)
+    }
+}
+```
+
+## 172. 数据流中的第K大元素（703）
+
+设计一个找到数据流中第 `k` 大元素的类（class）。注意是排序后的第 `k` 大元素，不是第 `k` 个不同的元素。
+
+请实现 `KthLargest` 类：
+
+- `KthLargest(int k, int[] nums)` 使用整数 `k` 和整数流 `nums` 初始化对象。
+- `int add(int val)` 将 `val` 插入数据流 `nums` 后，返回当前数据流中第 `k` 大的元素。
+
+```go
+import "sort"
+
+type KthLargest struct {
+    k int
+    nums []int
+}
+
+
+func Constructor(k int, nums []int) KthLargest {
+    sort.Ints(nums)
+    return KthLargest{
+        k: k,
+        nums: nums,
+    }
+}
+
+
+func (this *KthLargest) Add(val int) int {
+    index := 0
+    for index < len(this.nums) && this.nums[index] <= val {
+        index++
+    }
+    // 当前的 index 已经越界或者 nums[index] > val
+    this.nums = append(this.nums, 0)
+    // for i := index + 1; i < len(this.nums); i++ {
+    //     this.nums[i] = this.nums[i - 1]
+    // }
+    for i := len(this.nums) - 1; i > index; i-- {
+        this.nums[i] = this.nums[i - 1]
+    }
+    this.nums[index] = val
+    
+    return this.nums[len(this.nums) - this.k]
+}
+```
+
+## 173. 二分查找（704）
+
+给定一个 `n` 个元素有序的（升序）整型数组 `nums` 和一个目标值 `target` ，写一个函数搜索 `nums` 中的 `target`，如果目标值存在返回下标，否则返回 `-1`。
+
+```go
+func search(nums []int, target int) int {
+    left := 0
+    right := len(nums) - 1
+    for left <= right {
+        mid := (left + right) / 2
+        if nums[mid] > target {
+            right = mid - 1
+        } else if nums[mid] < target {
+            left = mid + 1
+        } else {
+            return mid
+        }
+    }
+    return -1
+}
+```
+
+## 174. 设计哈希集合（705）
+
+不使用任何内建的哈希表库设计一个哈希集合（HashSet）。
+
+实现 `MyHashSet` 类：
+
+- `void add(key)` 向哈希集合中插入值 `key` 。
+- `bool contains(key)` 返回哈希集合中是否存在这个值 `key` 。
+- `void remove(key)` 将给定值 `key` 从哈希集合中删除。如果哈希集合中没有这个值，什么也不做。
+
+```go
+type MyHashSet struct {
+    size int
+    data [][]int
+}
+
+
+func Constructor() MyHashSet {
+    data := make([][]int, 1024)
+    for i := 0; i < 1024; i++ {
+        data[i] = make([]int, 0)
+    }
+    return MyHashSet{
+        size: 1024,
+        data: data,
+    }
+}
+
+func (this *MyHashSet) Add(key int)  {
+    index := key % this.size
+    for _, num := range this.data[index] {
+        if num == key {
+            return
+        }
+    }
+    this.data[index] = append(this.data[index], key)
+}
+
+
+func (this *MyHashSet) Remove(key int)  {
+    index := key % this.size
+    for i, num := range this.data[index] {
+        if num == key {
+            this.data[index] = append(this.data[index][:i], this.data[index][i+1:]...)
+            break
+        }
+    }
+}
+
+
+func (this *MyHashSet) Contains(key int) bool {
+    index := key % this.size
+    for _, num := range this.data[index] {
+        if num == key {
+            return true
+        }
+    }
+    return false
+}
+```
+
 
 
 
@@ -672,8 +888,199 @@ func hasAlternatingBits(n int) bool {
 
 
 待做题目：
-696
-700
+
+```markdown
+706. 设计哈希映射
+717
+65.1%
+简单
+709. 转换成小写字母
+1119
+76.5%
+简单
+717. 1 比特与 2 比特字符
+874
+55.5%
+简单
+724. 寻找数组的中心下标
+2035
+54.4%
+简单
+728. 自除数
+828
+76.3%
+简单
+733. 图像渲染
+1383
+59.3%
+简单
+734. 句子相似性
+102
+48.9%
+简单
+744. 寻找比目标字母大的最小字母
+1179
+50.4%
+简单
+746. 使用最小花费爬楼梯
+3216
+67.8%
+简单
+747. 至少是其他数字两倍的最大数
+1049
+47.2%
+简单
+748. 最短补全词
+615
+66.8%
+简单
+760. 找出变位映射
+157
+85.4%
+简单
+762. 二进制表示中质数个计算置位
+531
+75.6%
+简单
+766. 托普利茨矩阵
+823
+69.8%
+简单
+771. 宝石与石头
+1678
+85.7%
+简单
+783. 二叉搜索树节点最小距离
+893
+60.6%
+简单
+796. 旋转字符串
+1019
+63.9%
+简单
+800. 相似 RGB 颜色
+60
+69.7%
+简单
+804. 唯一摩尔斯密码词
+896
+82.3%
+简单
+806. 写字符串需要的行数
+680
+68.8%
+简单
+812. 最大三角形面积
+355
+68.1%
+简单
+819. 最常见的单词
+808
+45.8%
+简单
+821. 字符的最短距离
+1088
+72.8%
+简单
+824. 山羊拉丁文
+789
+65.4%
+简单
+830. 较大分组的位置
+764
+54.5%
+简单
+832. 翻转图像
+1209
+79.6%
+简单
+836. 矩形重叠
+823
+49.7%
+简单
+844. 比较含退格的字符串
+2412
+48.0%
+简单
+859. 亲密字符串
+969
+35.1%
+简单
+860. 柠檬水找零
+1821
+59.3%
+简单
+867. 转置矩阵
+987
+68.5%
+简单
+868. 二进制间距
+761
+70.1%
+简单
+872. 叶子相似的树
+1049
+65.4%
+简单
+876. 链表的中间结点
+4074
+71.9%
+简单
+883. 三维形体投影面积
+601
+76.9%
+简单
+884. 两句话中的不常见单词
+703
+71.5%
+简单
+888. 公平的糖果交换
+674
+63.9%
+简单
+892. 三维形体的表面积
+801
+65.3%
+简单
+896. 单调数列
+1237
+56.6%
+简单
+897. 递增顺序搜索树
+960
+73.8%
+简单
+905. 按奇偶排序数组
+1617
+71.3%
+简单
+908. 最小差值 I
+726
+76.8%
+简单
+914. 卡牌分组
+798
+37.1%
+简单
+917. 仅仅反转字母
+1175
+59.3%
+简单
+922. 按奇偶排序数组 II
+1278
+72.5%
+简单
+925. 长按键入
+903
+37.3%
+简单
+929. 独特的电子邮件地址
+582
+68.5%
+简单
+```
+
+
 
 
 
