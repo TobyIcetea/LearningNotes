@@ -163,6 +163,12 @@
 ctr image pull --hosts-dir=/etc/containerd/certs.d docker.io/library/nginx:latest
 ```
 
+如果要确定是否真的使用了镜像加速，可以增加 `--debug=true` 参数，所以命令就变成了：
+
+```bash
+ctr --debug=true image pull --hosts-dir=/etc/containerd/certs.d docker.io/library/nginx:latest
+```
+
 如果感觉这样太麻烦，也可以通过给命令起别名的方法，简化命令的操作。
 
 ```bash

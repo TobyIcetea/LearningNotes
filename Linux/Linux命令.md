@@ -242,7 +242,7 @@ timestamp=1741401629
 [ethernet]
 
 [ipv4]
-address1=192.168.100.101/24
+address=192.168.100.101/24
 dns=8.8.8.8;8.8.4.4;
 gateway=192.168.100.2
 ignore-auto-dns=true
@@ -256,6 +256,19 @@ method=auto
 ```
 
 当然我们主要是修改其中的 ipv4 部分的内容。
+
+修改完了之后，重启一下网络，就可以看到是否生效：
+
+```bash
+nmcli connection reload
+nmcli connection down ens160
+nmcli connection up ens160
+
+# 查看修改是否生效
+ip addr
+```
+
+
 
 
 

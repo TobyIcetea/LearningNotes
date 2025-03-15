@@ -318,6 +318,19 @@ kubectl taint nodes master node-role.kubernetes.io/control-plane:NoSchedule-
 
     用途：虽然通常通过 Deployment 进行管理，但也可以直接对 ReplicaSet 进行重启。
 
+## 4. Kubernetes 命令补全
+
+直接执行下面的命令：
+
+```bash
+dnf install -y bash-completion
+source /usr/share/bash-completion/bash_completion
+source <(kubectl completion bash)
+kubectl completion bash > ~/.kube/completion.bash.inc
+source '/root/.kube/completion.bash.inc'
+source $HOME/.bash_profile
+```
+
 
 
 

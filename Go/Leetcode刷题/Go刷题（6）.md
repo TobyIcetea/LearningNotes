@@ -798,29 +798,7 @@ func (this *KthLargest) Add(val int) int {
 }
 ```
 
-## 173. 二分查找（704）
-
-给定一个 `n` 个元素有序的（升序）整型数组 `nums` 和一个目标值 `target` ，写一个函数搜索 `nums` 中的 `target`，如果目标值存在返回下标，否则返回 `-1`。
-
-```go
-func search(nums []int, target int) int {
-    left := 0
-    right := len(nums) - 1
-    for left <= right {
-        mid := (left + right) / 2
-        if nums[mid] > target {
-            right = mid - 1
-        } else if nums[mid] < target {
-            left = mid + 1
-        } else {
-            return mid
-        }
-    }
-    return -1
-}
-```
-
-## 174. 设计哈希集合（705）
+## 173. 设计哈希集合（705）
 
 不使用任何内建的哈希表库设计一个哈希集合（HashSet）。
 
@@ -881,204 +859,273 @@ func (this *MyHashSet) Contains(key int) bool {
 }
 ```
 
+## 174. 设计哈希映射（706）
+
+不使用任何内建的哈希表库设计一个哈希映射（HashMap）。
+
+实现 `MyHashMap` 类：
+
+- `MyHashMap()` 用空映射初始化对象
+- `void put(int key, int value)` 向 HashMap 插入一个键值对 `(key, value)` 。如果 `key` 已经存在于映射中，则更新其对应的值 `value` 。
+- `int get(int key)` 返回特定的 `key` 所映射的 `value` ；如果映射中不包含 `key` 的映射，返回 `-1` 。
+- `void remove(key)` 如果映射中存在 `key` 的映射，则移除 `key` 和它所对应的 `value` 。
+
+```go
+type KeyValue struct {
+    key int
+    value int
+}
+
+func NewKeyValue(key int, value int) KeyValue {
+    return KeyValue{
+        key: key,
+        value: value,
+    }
+}
+
+type MyHashMap struct {
+    size int
+    data [][]KeyValue
+}
+
+func Constructor() MyHashMap {
+    size := 1024
+    data := make([][]KeyValue, size)
+    for i := 0; i < size; i++ {
+        data[i] = make([]KeyValue, 0)
+    }
+    return MyHashMap{
+        size: size,
+        data: data,
+    }
+}   
+
+func (this *MyHashMap) Put(key int, value int)  {
+    index := key % this.size
+    for i, kv := range this.data[index] {
+        if kv.key == key {
+            this.data[index][i].value = value
+            return
+        }
+    }
+    this.data[index] = append(this.data[index], NewKeyValue(key, value))
+}
 
 
+func (this *MyHashMap) Get(key int) int {
+    index := key % this.size
+    for _, kv := range this.data[index] {
+        if kv.key == key {
+            return kv.value
+        }
+    }
+    return -1
+}
 
 
-
-
-待做题目：
-
-```markdown
-706. 设计哈希映射
-717
-65.1%
-简单
-709. 转换成小写字母
-1119
-76.5%
-简单
-717. 1 比特与 2 比特字符
-874
-55.5%
-简单
-724. 寻找数组的中心下标
-2035
-54.4%
-简单
-728. 自除数
-828
-76.3%
-简单
-733. 图像渲染
-1383
-59.3%
-简单
-734. 句子相似性
-102
-48.9%
-简单
-744. 寻找比目标字母大的最小字母
-1179
-50.4%
-简单
-746. 使用最小花费爬楼梯
-3216
-67.8%
-简单
-747. 至少是其他数字两倍的最大数
-1049
-47.2%
-简单
-748. 最短补全词
-615
-66.8%
-简单
-760. 找出变位映射
-157
-85.4%
-简单
-762. 二进制表示中质数个计算置位
-531
-75.6%
-简单
-766. 托普利茨矩阵
-823
-69.8%
-简单
-771. 宝石与石头
-1678
-85.7%
-简单
-783. 二叉搜索树节点最小距离
-893
-60.6%
-简单
-796. 旋转字符串
-1019
-63.9%
-简单
-800. 相似 RGB 颜色
-60
-69.7%
-简单
-804. 唯一摩尔斯密码词
-896
-82.3%
-简单
-806. 写字符串需要的行数
-680
-68.8%
-简单
-812. 最大三角形面积
-355
-68.1%
-简单
-819. 最常见的单词
-808
-45.8%
-简单
-821. 字符的最短距离
-1088
-72.8%
-简单
-824. 山羊拉丁文
-789
-65.4%
-简单
-830. 较大分组的位置
-764
-54.5%
-简单
-832. 翻转图像
-1209
-79.6%
-简单
-836. 矩形重叠
-823
-49.7%
-简单
-844. 比较含退格的字符串
-2412
-48.0%
-简单
-859. 亲密字符串
-969
-35.1%
-简单
-860. 柠檬水找零
-1821
-59.3%
-简单
-867. 转置矩阵
-987
-68.5%
-简单
-868. 二进制间距
-761
-70.1%
-简单
-872. 叶子相似的树
-1049
-65.4%
-简单
-876. 链表的中间结点
-4074
-71.9%
-简单
-883. 三维形体投影面积
-601
-76.9%
-简单
-884. 两句话中的不常见单词
-703
-71.5%
-简单
-888. 公平的糖果交换
-674
-63.9%
-简单
-892. 三维形体的表面积
-801
-65.3%
-简单
-896. 单调数列
-1237
-56.6%
-简单
-897. 递增顺序搜索树
-960
-73.8%
-简单
-905. 按奇偶排序数组
-1617
-71.3%
-简单
-908. 最小差值 I
-726
-76.8%
-简单
-914. 卡牌分组
-798
-37.1%
-简单
-917. 仅仅反转字母
-1175
-59.3%
-简单
-922. 按奇偶排序数组 II
-1278
-72.5%
-简单
-925. 长按键入
-903
-37.3%
-简单
-929. 独特的电子邮件地址
-582
-68.5%
-简单
+func (this *MyHashMap) Remove(key int)  {
+    index := key % this.size
+    for i, kv := range this.data[index] {
+        if kv.key == key {
+            this.data[index] = append(this.data[index][:i], this.data[index][i+1:]...)
+            break
+        }
+    }
+}
 ```
+
+## 175. 转换成小写字母（709）
+
+给你一个字符串 `s` ，将该字符串中的大写字母转换成相同的小写字母，返回新的字符串。
+
+```go
+func toLowerCase(s string) string {
+    runes := []rune(s)
+    for i, r := range runes {
+        if r >= 'A' && r <= 'Z' {
+            runes[i] += 32
+        }
+    }
+    return string(runes)
+}
+```
+
+## 176. 1比特与2比特（717）
+
+有两种特殊字符：
+
+- 第一种字符可以用一比特 `0` 表示
+- 第二种字符可以用两比特（`10` 或 `11`）表示
+
+给你一个以 `0` 结尾的二进制数组 `bits` ，如果最后一个字符必须是一个一比特字符，则返回 `true` 。
+
+```go
+func isOneBitCharacter(bits []int) bool {
+    // 最后一个数字必须是 0
+    // 0 前面必须是 0 或者 偶数个 1
+    if bits[len(bits) - 1] != 0 {
+        return false
+    }
+    if len(bits) - 2 >= 0 && bits[len(bits) - 2] == 0 {
+        return true
+    }
+    countOfOne := 0
+    for i := len(bits) - 2; i >= 0; i-- {
+        if bits[i] == 1 {
+            countOfOne++
+        } else {
+            break
+        }
+    }
+    return countOfOne % 2 == 0
+}
+```
+
+## 177. 寻找比目标字母大的最小字母（744）
+
+给你一个字符数组 `letters`，该数组按**非递减顺序**排序，以及一个字符 `target`。`letters` 里**至少有两个不同**的字符。
+
+返回 `letters` 中大于 `target` 的最小的字符。如果不存在这样的字符，则返回 `letters` 的第一个字符。
+
+```go
+func nextGreatestLetter(letters []byte, target byte) byte {
+    // 二分，寻找第一个比 target 大的数字
+    left := 0
+    right := len(letters) - 1
+    for left <= right {
+        mid := (left + right) / 2
+        if letters[mid] <= target {
+            left = mid + 1
+        } else {
+            right = mid - 1
+        }
+    }
+    if left == len(letters) {
+        return letters[0]
+    } else {
+        return letters[left]
+    }
+}
+```
+
+## 178. 至少是其他数字两倍的最大数（747）
+
+给你一个整数数组 `nums` ，其中总是存在 **唯一的** 一个最大整数 。
+
+请你找出数组中的最大元素并检查它是否 **至少是数组中每个其他数字的两倍** 。如果是，则返回 **最大元素的下标** ，否则返回 `-1` 。
+
+```go
+func dominantIndex(nums []int) int {
+    // 保留两个数字，一个是最大的，另一个是第二大的
+    maxNumIndex := -1
+    maxNum := 0
+    secondMaxNum := 0
+    for i, num := range nums {
+        if num > secondMaxNum {
+            secondMaxNum = num
+            if secondMaxNum > maxNum {
+                maxNum, secondMaxNum = secondMaxNum, maxNum
+                maxNumIndex = i
+            }
+        }
+    }
+    if maxNum >= secondMaxNum * 2 {
+        return maxNumIndex
+    }
+    return -1
+}
+```
+
+## 179. 最短补全词（748）
+
+```go
+func shortestCompletingWord(licensePlate string, words []string) string {
+    countOfPlate := make(map[rune]int)
+    for _, r := range licensePlate {
+        if r >= 'a' && r <= 'z' {
+            countOfPlate[r]++
+        } else if r >= 'A' && r <= 'Z' {
+            countOfPlate[r + 32]++
+        }
+    }
+    
+    res := ""
+    first := true
+Outer:
+    for _, word := range words {
+        countOfWord := make(map[rune]int)
+        for _, r := range word {
+            countOfWord[r]++
+        }
+        for r, count := range countOfPlate {
+            if countOfWord[r] < count {
+                continue Outer
+            }
+        }
+        // 此时 word 在字符上是符合答案要求的
+        if first {
+            first = false
+            res = word
+        } else if len(word) < len(res) {
+            res = word
+        }
+    }
+    return res
+}
+```
+
+## 180. 二进制表示中质数个计算置位
+
+给你两个整数 `left` 和 `right` ，在闭区间 `[left, right]` 范围内，统计并返回 **计算置位位数为质数** 的整数个数。
+
+**计算置位位数** 就是二进制表示中 `1` 的个数。
+
+- 例如， `21` 的二进制表示 `10101` 有 `3` 个计算置位。
+
+```go
+import "math"
+
+func IsPrime(num int) bool {
+    if num <= 1 {
+        return false
+    }
+    if num == 2 {
+        return true
+    }
+    // 排除所有偶数
+    if num % 2 == 0 {
+        return false
+    }
+    // 从 3 开始，每次加 2（跳过偶数）
+    sqrt := int(math.Sqrt(float64(num)))
+    for i := 3; i <= sqrt; i += 2 {
+        if num % i == 0 {
+            return false
+        }
+    }
+    return true
+}
+
+func countPrimeSetBits(left int, right int) int {
+    res := 0
+    for num := left; num <= right; num++ {
+        countOfOne := 0
+        n := num
+        for n != 0 {
+            if n & 1 == 1 {
+                countOfOne++
+            }
+            n >>= 1
+        }
+        if IsPrime(countOfOne) {
+            res++
+        }
+    }
+    return res
+}
+```
+
+
 
 
 
