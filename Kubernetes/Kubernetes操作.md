@@ -327,7 +327,13 @@ dnf install -y bash-completion
 source /usr/share/bash-completion/bash_completion
 source <(kubectl completion bash)
 kubectl completion bash > ~/.kube/completion.bash.inc
+
+vim ~/.bash_profile
+----------------------------------------------------------------
+# 加入如下内容
 source '/root/.kube/completion.bash.inc'
+----------------------------------------------------------------
+
 source $HOME/.bash_profile
 ```
 

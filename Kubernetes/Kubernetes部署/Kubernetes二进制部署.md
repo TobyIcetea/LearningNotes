@@ -23,7 +23,7 @@
 | etcd         | v3.5.19          |           |
 | calico       | v3.29.2          |           |
 | coredns      | v1.12.0          |           |
-| containerd   | v1.7.26          |           |
+| containerd   | v1.7.27          |           |
 | runc         | v1.2.5           |           |
 | haproxy      | 5.18             | YUM源默认 |
 | keepalived   | 3.5              | YUM源默认 |
@@ -1274,7 +1274,7 @@ systemctl enable --now kube-controller-manager
 systemctl status kube-controller-manager
 ```
 
-验证：
+**验证**：
 
 ```bash
 kubectl get componentstatuses
@@ -1394,6 +1394,564 @@ systemctl status kube-scheduler
 ```bash
 kubectl get componentstatuses
 ```
+
+### 6.9 部署 Containerd
+
+下载 Containerd：
+
+```bash
+wget https://github.com/containerd/containerd/releases/download/v1.7.27/cri-containerd-cni-1.7.27-linux-amd64.tar.gz
+```
+
+安装 Containerd：
+
+```bash
+tar zxvf cri-containerd-cni-1.7.27-linux-amd64.tar.gz -C /
+rm -f /cri-containerd.DEPRECATED.txt
+rm -f /etc/cni/net.d/10-containerd-net.conflist
+```
+
+将 Containerd 安装到其他的主机上：
+
+```bash
+scp cri-containerd-cni-1.7.27-linux-amd64.tar.gz k8s-master2:/root/
+scp cri-containerd-cni-1.7.27-linux-amd64.tar.gz k8s-master3:/root/
+scp cri-containerd-cni-1.7.27-linux-amd64.tar.gz k8s-worker1:/root/
+
+# 然后在其他三台主机上都执行：
+tar zxvf cri-containerd-cni-1.7.27-linux-amd64.tar.gz -C /
+rm -f /cri-containerd.DEPRECATED.txt
+rm -f /etc/cni/net.d/10-containerd-net.conflist
+```
+
+配置 Containerd 配置文件：
+
+> 在 k8s-master1、k8s-master2、k8s-master3、k8s-worker1 中执行：
+
+```bash
+# 生成 Containerd 初始化配置
+mkdir /etc/containerd
+containerd config default > /etc/containerd/config.toml
+
+# 修改配置文件，需要修改三个地方
+vim /etc/containerd/config.toml
+---------------------------------------------------------------------------------
+# 如果要配置 K8s 的话，就要修改这里
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+  SystemdCgroup = true
+# 如果容器启动不起来，爆出 sandbox_image 之类的东西，可以修改这里
+  sandbox_image = "registry.aliyuncs.com/google_containers/pause:3.9"
+# 修改镜像加速文件地址
+  config_path = "/etc/containerd/certs.d"
+---------------------------------------------------------------------------------
+```
+
+镜像加速地址配置：
+
+```bash
+# docker hub镜像加速
+mkdir -p /etc/containerd/certs.d/docker.io
+cat > /etc/containerd/certs.d/docker.io/hosts.toml << EOF
+server = "https://docker.io"
+[host."https://1ecf599359e64520bd04701e6d7184e8.mirror.swr.myhuaweicloud.com"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://le2c3l3b.mirror.aliyuncs.com"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://docker.m.daocloud.io"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://reg-mirror.qiniu.com"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://registry.docker-cn.com"]
+  capabilities = ["pull", "resolve"]
+
+[host."http://hub-mirror.c.163.com"]
+  capabilities = ["pull", "resolve"]
+
+EOF
+
+# registry.k8s.io镜像加速
+mkdir -p /etc/containerd/certs.d/registry.k8s.io
+tee /etc/containerd/certs.d/registry.k8s.io/hosts.toml << 'EOF'
+server = "https://registry.k8s.io"
+
+[host."https://k8s.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# docker.elastic.co镜像加速
+mkdir -p /etc/containerd/certs.d/docker.elastic.co
+tee /etc/containerd/certs.d/docker.elastic.co/hosts.toml << 'EOF'
+server = "https://docker.elastic.co"
+
+[host."https://elastic.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# gcr.io镜像加速
+mkdir -p /etc/containerd/certs.d/gcr.io
+tee /etc/containerd/certs.d/gcr.io/hosts.toml << 'EOF'
+server = "https://gcr.io"
+
+[host."https://gcr.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# ghcr.io镜像加速
+mkdir -p /etc/containerd/certs.d/ghcr.io
+tee /etc/containerd/certs.d/ghcr.io/hosts.toml << 'EOF'
+server = "https://ghcr.io"
+
+[host."https://ghcr.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# k8s.gcr.io镜像加速
+mkdir -p /etc/containerd/certs.d/k8s.gcr.io
+tee /etc/containerd/certs.d/k8s.gcr.io/hosts.toml << 'EOF'
+server = "https://k8s.gcr.io"
+
+[host."https://k8s-gcr.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# mcr.m.daocloud.io镜像加速
+mkdir -p /etc/containerd/certs.d/mcr.microsoft.com
+tee /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml << 'EOF'
+server = "https://mcr.microsoft.com"
+
+[host."https://mcr.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# nvcr.io镜像加速
+mkdir -p /etc/containerd/certs.d/nvcr.io
+tee /etc/containerd/certs.d/nvcr.io/hosts.toml << 'EOF'
+server = "https://nvcr.io"
+
+[host."https://nvcr.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# quay.io镜像加速
+mkdir -p /etc/containerd/certs.d/quay.io
+tee /etc/containerd/certs.d/quay.io/hosts.toml << 'EOF'
+server = "https://quay.io"
+
+[host."https://quay.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# registry.jujucharms.com镜像加速
+mkdir -p /etc/containerd/certs.d/registry.jujucharms.com
+tee /etc/containerd/certs.d/registry.jujucharms.com/hosts.toml << 'EOF'
+server = "https://registry.jujucharms.com"
+
+[host."https://jujucharms.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+
+# rocks.canonical.com镜像加速
+mkdir -p /etc/containerd/certs.d/rocks.canonical.com
+tee /etc/containerd/certs.d/rocks.canonical.com/hosts.toml << 'EOF'
+server = "https://rocks.canonical.com"
+
+[host."https://rocks-canonical.m.daocloud.io"]
+  capabilities = ["pull", "resolve", "push"]
+EOF
+```
+
+此时还有做一个检测，直接执行 `runc`，看能不能执行成功。因为这个包里面自带的 runc 是需要系统中某一个功能的，如果系统中没有自带这个功能，执行就会失败。
+
+如果出现这种情况，就去 github 上下载最新的 runc，然后给所有主机都安装就行。
+
+之后开启 containerd 的服务：
+
+> 在 k8s-master1、k8s-master2、k8s-master3、k8s-worker1 中执行：
+
+```bash
+systemctl daemon-reload
+systemctl enable --now containerd
+```
+
+### 6.10 部署 kubelet
+
+创建 kubelet-bootstrap.kubeconfig：
+
+> 在 k8s-master1 上执行：
+
+```bash
+BOOTSTRAP_TOKEN=$(awk -F "," '{print $1}' /etc/kubernetes/token.csv)
+
+kubectl config set-cluster kubernetes --certificate-authority=ca.pem --embed-certs=true --server=https://192.168.100.100:6443 --kubeconfig=kubelet-bootstrap.kubeconfig
+
+kubectl config set-credentials kubelet-bootstrap --token=$BOOTSTRAP_TOKEN --kubeconfig=kubelet-bootstrap.kubeconfig
+
+kubectl config set-context default --cluster=kubernetes --user=kubelet-bootstrap --kubeconfig=kubelet-bootstrap.kubeconfig
+
+kubectl config use-context default --kubeconfig=kubelet-bootstrap.kubeconfig
+```
+
+角色绑定：
+
+```bash
+kubectl create clusterrolebinding cluster-system-anonymous --clusterrole=cluster-admin --user=kubelet-bootstrap
+
+kubectl create clusterrolebinding kubelet-bootstrap --clusterrole=system:node-bootstrapper --user=kubelet-bootstrap --kubeconfig=kubelet-bootstrap.kubeconfig
+
+kubectl describe clusterrolebinding cluster-system-anonymous
+
+kubectl describe clusterrolebinding kubelet-bootstrap
+```
+
+创建 kubelet 配置文件：
+
+```bash
+cat > kubelet.json << "EOF"
+{
+  "kind": "KubeletConfiguration",
+  "apiVersion": "kubelet.config.k8s.io/v1beta1",
+  "authentication": {
+    "x509": {
+      "clientCAFile": "/etc/kubernetes/ssl/ca.pem"
+    },
+    "webhook": {
+      "enabled": true,
+      "cacheTTL": "2m0s"
+    },
+    "anonymous": {
+      "enabled": false
+    }
+  },
+  "authorization": {
+    "mode": "Webhook",
+    "webhook": {
+      "cacheAuthorizedTTL": "5m0s",
+      "cacheUnauthorizedTTL": "30s"
+    }
+  },
+  "address": "192.168.100.12",
+  "port": 10250,
+  "readOnlyPort": 10255,
+  "cgroupDriver": "systemd",
+  "hairpinMode": "promiscuous-bridge",
+  "serializeImagePulls": false,
+  "clusterDomain": "cluster.local.",
+  "clusterDNS": ["10.96.0.2"]
+}
+EOF
+```
+
+创建 kubelet 服务配置文件：
+
+```bash
+cat > kubelet.service << "EOF"
+[Unit]
+Description=Kubernetes Kubelet
+Documentation=https://github.com/kubernetes/kubernetes
+After=containerd.service
+Requires=containerd.service
+
+[Service]
+WorkingDirectory=/var/lib/kubelet
+ExecStart=/usr/local/bin/kubelet \
+  --bootstrap-kubeconfig=/etc/kubernetes/kubelet-bootstrap.kubeconfig \
+  --cert-dir=/etc/kubernetes/ssl \
+  --kubeconfig=/etc/kubernetes/kubelet.kubeconfig \
+  --config=/etc/kubernetes/kubelet.json \
+  --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+  --rotate-certificates \
+  --pod-infra-container-image=registry.aliyuncs.com/google_containers/pause:3.9 \
+  --root-dir=/etc/cni/net.d \
+  --v=2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+同步文件到集群节点：
+
+> k8s-master1 执行：
+
+```bash
+cp kubelet-bootstrap.kubeconfig /etc/kubernetes/
+cp kubelet.json /etc/kubernetes/
+cp kubelet.service /usr/lib/systemd/system/
+
+for i in k8s-master2 k8s-master3 k8s-worker1; do scp kubelet-bootstrap.kubeconfig kubelet.json $i:/etc/kubernetes/; done
+
+for i in k8s-master2 k8s-master3 k8s-worker1; do scp ca.pem $i:/etc/kubernetes/ssl/; done
+
+for i in k8s-master2 k8s-master3 k8s-worker1; do scp kubelet.service $i:/usr/lib/systemd/system/; done
+```
+
+之后在 k8s-master2、k8s-master3、k8s-worker1 中逐个去修改 `/etc/kubernetes/kubelet.json`，然后将其中的 IP 地址修改为节点自己的 IP：
+
+> 在 k8s-master2、k8s-master3、k8s-worker1 中执行：
+
+```bash
+vim /etc/kubernetes/kubelet.json
+```
+
+创建目录及启动 kubelet 服务：
+
+> 首先先在 k8s-worker1 节点中，加入 kubelet、kube-proxy 可执行文件：
+>
+> 在 k8s-master1 执行：
+
+```bash
+scp /usr/local/bin/kubelet /usr/local/bin/kube-proxy k8s-worker1:/usr/local/bin/
+```
+
+> 在 k8s-master1、k8s-master2、k8s-master3、k8s-worker1 中执行：
+
+```bash
+mkdir -p /var/lib/kubelet
+mkdir -p /var/log/kubernetes
+
+systemctl daemon-reload
+systemctl enable --now kubelet
+```
+
+### 6.11 部署 kube-proxy
+
+创建 kube-proxy 证书请求文件：
+
+> 在 k8s-master1 上执行：
+
+```bash
+cat > kube-proxy-csr.json << "EOF"
+{
+  "CN": "system:kube-proxy",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Beijing",
+      "L": "Beijing",
+      "O": "kubekube",
+      "OU": "CN"
+    }
+  ]
+}
+EOF
+```
+
+生成 CSR 证书请求文件：
+
+```bash
+cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  kube-proxy-csr.json | cfssljson -bare kube-proxy
+```
+
+创建 kubeconfig 文件：
+
+```bash
+kubectl config set-cluster kubernetes --certificate-authority=ca.pem --embed-certs=true --server=https://192.168.100.100:6443 --kubeconfig=kube-proxy.kubeconfig
+
+kubectl config set-credentials kube-proxy --client-certificate=kube-proxy.pem --client-key=kube-proxy-key.pem --embed-certs=true --kubeconfig=kube-proxy.kubeconfig
+
+kubectl config set-context default --cluster=kubernetes --user=kube-proxy --kubeconfig=kube-proxy.kubeconfig
+
+kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+```
+
+创建服务配置文件：
+
+```bash
+cat > kube-proxy.yaml << "EOF"
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+bindAddress: 192.168.100.12
+clientConnection:
+  kubeconfig: /etc/kubernetes/kube-proxy.kubeconfig
+clusterCIDR: 10.244.0.0/16
+healthzBindAddress: 192.168.100.12:10256
+kind: KubeProxyConfiguration
+metricsBindAddress: 192.168.100.12:10249
+mode: "ipvs"
+EOF
+```
+
+创建服务启动管理文件：
+
+```bash
+cat > kube-proxy.service << "EOF"
+[Unit]
+Description=Kubernetes Kube-Proxy Server
+Documentation=https://github.com/kubernetes/kubernetes
+After=network.target
+
+[Service]
+WorkingDirectory=/var/lib/kube-proxy
+ExecStart=/usr/local/bin/kube-proxy \
+  --config=/etc/kubernetes/kube-proxy.yaml \
+  --alsologtostderr=true \
+  --logtostderr=false \
+  --log-dir=/var/log/kubernetes \
+  --v=2
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+同步文件到集群工作节点主机：
+
+```bash
+cp kube-proxy*.pem /etc/kubernetes/ssl/
+cp kube-proxy.kubeconfig kube-proxy.yaml /etc/kubernetes/
+cp kube-proxy.service /usr/lib/systemd/system/
+
+for i in k8s-master2 k8s-master3 k8s-worker1; do
+    scp kube-proxy.kubeconfig kube-proxy.yaml $i:/etc/kubernetes/
+done
+
+for i in k8s-master2 k8s-master3 k8s-worker1; do
+    scp kube-proxy.service $i:/usr/lib/systemd/system/
+done
+```
+
+然后在 k8s-master2、k8s-master3、k8s-worker1 上将 `/etc/kubernetes/kube-proxy.yaml` 文件中的 IP 地址修改成各自主机的 IP 地址：
+
+> 在 k8s-master2、k8s-master3、k8s-worker1 上执行：
+
+```bash
+vim /etc/kubernetes/kube-proxy.yaml
+```
+
+服务启动：
+
+> 在 k8s-master1、k8s-master2、k8s-master3、k8s-worker1 上执行：
+
+```bash
+mkdir -p /var/lib/kube-proxy
+
+systemctl daemon-reload
+systemctl enable --now kube-proxy
+systemctl status kube-proxy
+```
+
+### 6.12 网络组件部署（未解决）
+
+**原本教程（我执行失败了）：**
+
+下载：
+
+```bash
+wget https://raw.githubusercontent.com/projectcalico/calico/refs/heads/master/manifests/calico.yaml
+```
+
+修改文件：
+
+```bash
+vim calico.yaml
+-----------------------------------------------------------------
+修改其中的这个部分（一开始是注释掉的）：
+            - name: CALICO_IPV4POOL_CIDR
+              value: "10.244.0.0/16"
+-----------------------------------------------------------------
+```
+
+应用文件：
+
+```bash
+kubectl apply -f calico.yaml
+```
+
+但是尝试之后，发现行不通，而且 Flannel 也不行。
+
+最后决定先继续看课，沉淀一段时间，再来找解决方法。
+
+### 6.13 部署 coredns
+
+下载：
+
+```bash
+wget https://raw.githubusercontent.com/coredns/deployment/refs/heads/master/kubernetes/coredns.yaml.sed -O coredns.yaml
+```
+
+之后将文件中的 CLUSTER_DNS_IP 部分设置为：`10.96.0.2`。
+
+```bash
+kubectl apply -f coredns.yaml
+```
+
+### 6.14 验证
+
+```bash
+cat << EOF >  nginx.yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nginx-web
+spec:
+  replicas: 2
+  selector:
+    name: nginx
+  template:
+    metadata:
+      labels:
+        name: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service-nodeport
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30001
+      protocol: TCP
+  type: NodePort
+  selector:
+    name: nginx
+EOF
+```
+
+```bash
+kubectl apply -f nginx.yaml
+
+kubectl get pods -o wide -w
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

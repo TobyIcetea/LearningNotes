@@ -594,7 +594,7 @@ vim /etc/kubernetes/manifests/kube-controller-manager.yaml
 
 ```bash
 # 下载 flannel
-wget https://github.com/flannel-io/flannel/blob/master/Documentation/kube-flannel.yml
+wget https://raw.githubusercontent.com/flannel-io/flannel/refs/heads/master/Documentation/kube-flannel.yml
 
 # 加载 flannel
 kubectl apply -f kube-flannel.yml

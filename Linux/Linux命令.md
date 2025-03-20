@@ -193,7 +193,7 @@ grub2-mkconfig -o /boot/grub/grub.cfg
 ```bash
 vim /etc/profile
 ----------------------------------------
-FLCLASH_IP="10.198.195.184"  # 这里填写自己的 windows 主机的 ip 地址
+FLCLASH_IP="10.198.60.212"  # 这里填写自己的 windows 主机的 ip 地址
 export http_proxy="http://${FLCLASH_IP}:7890"
 export https_proxy="http://${FLCLASH_IP}:7890"
 export ftp_proxy="http://${FLCLASH_IP}:7890"
