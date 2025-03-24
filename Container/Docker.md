@@ -2,6 +2,8 @@
 
 ## 安装过程
 
+### Centos
+
 1. 设置 yum 源，添加阿里仓库。
 
     ```bash
@@ -33,6 +35,27 @@
     ```bash
     docker --version
     ```
+
+高版本 Centos 可以直接使用 `dnf install docker` 安装 Docker。
+
+### Ubuntu
+
+```bash
+apt-get update
+    
+curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://mirrors.ustc.edu.cn/docker-ce/linux/ubuntu/ \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+apt-get update
+
+apt-get install docker-ce docker-ce-cli containerd.io
+
+systemctl enable --now docker
+```
 
 ## Docker 设置加速镜像
 

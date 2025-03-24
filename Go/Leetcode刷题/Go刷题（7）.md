@@ -406,7 +406,315 @@ func toGoatLatin(sentence string) string {
 }
 ```
 
+## 191. 较大分组的位置（830）
 
+在一个由小写字母构成的字符串 `s` 中，包含由一些连续的相同字符所构成的分组。
+
+例如，在字符串 `s = "abbxxxxzyy"` 中，就含有 `"a"`, `"bb"`, `"xxxx"`, `"z"` 和 `"yy"` 这样的一些分组。
+
+分组可以用区间 `[start, end]` 表示，其中 `start` 和 `end` 分别表示该分组的起始和终止位置的下标。上例中的 `"xxxx"` 分组用区间表示为 `[3,6]` 。
+
+我们称所有包含大于或等于三个连续字符的分组为 **较大分组** 。
+
+找到每一个 **较大分组** 的区间，**按起始位置下标递增顺序排序后**，返回结果。
+
+```go
+func largeGroupPositions(s string) [][]int {
+    begin := -1
+    res := make([][]int, 0)
+
+    for i, _ := range s {
+        if begin == -1 {
+            // 还没开始
+            begin = i
+        } else {
+            // 已经开始了
+            if s[i] != s[i - 1] {
+                len := i - begin
+                if len >= 3 {
+                    res = append(res, []int{begin, i - 1})
+                }
+                begin = i
+            }
+        }
+    }
+    if len(s) - begin >= 3 {
+        res = append(res, []int{begin, len(s) - 1})
+    }
+
+    return res
+}
+```
+
+## 192. 矩阵重叠（836）
+
+矩形以列表 `[x1, y1, x2, y2]` 的形式表示，其中 `(x1, y1)` 为左下角的坐标，`(x2, y2)` 是右上角的坐标。矩形的上下边平行于 x 轴，左右边平行于 y 轴。
+
+如果相交的面积为 **正** ，则称两矩形重叠。需要明确的是，只在角或边接触的两个矩形不构成重叠。
+
+给出两个矩形 `rec1` 和 `rec2` 。如果它们重叠，返回 `true`；否则，返回 `false` 。
+
+```go
+func isRectangleOverlap(rec1 []int, rec2 []int) bool {
+    // 如果两个矩阵在 x 轴和 y 轴上的投影都重叠，那么这两个矩阵就重叠
+    overlapX := !(rec1[2] <= rec2[0] || rec2[2] <= rec1[0])
+    overlapY := !(rec1[3] <= rec2[1] || rec2[3] <= rec1[1])
+    return overlapX && overlapY
+}
+```
+
+## 193. 比较含退格的字符串（844）
+
+给定 `s` 和 `t` 两个字符串，当它们分别被输入到空白的文本编辑器后，如果两者相等，返回 `true` 。`#` 代表退格字符。
+
+**注意：**如果对空文本输入退格字符，文本继续为空。
+
+```go
+func backspaceCompare(s string, t string) bool {
+    runes1 := make([]rune, 0, len(s))
+    runes2 := make([]rune, 0, len(t))
+    
+    for _, c := range s {
+        if c == '#' {
+            if len(runes1) > 0 {
+                runes1 = runes1[:len(runes1) - 1]
+            }            
+        } else {
+            runes1 = append(runes1, c)
+        }
+    }
+    for _, c := range t {
+        if c == '#' {
+            if len(runes2) > 0 {
+                runes2 = runes2[:len(runes2) - 1]
+            }
+        } else {
+            runes2 = append(runes2, c)
+        }
+    }
+    if len(runes1) != len(runes2) {
+        return false
+    }
+    for i := 0; i < len(runes1); i++ {
+        if runes1[i] != runes2[i] {
+            return false
+        }
+    }
+
+    return true
+}
+```
+
+## 194. 亲密字符串（859）
+
+给你两个字符串 `s` 和 `goal` ，只要我们可以通过交换 `s` 中的两个字母得到与 `goal` 相等的结果，就返回 `true` ；否则返回 `false` 。
+
+交换字母的定义是：取两个下标 `i` 和 `j` （下标从 `0` 开始）且满足 `i != j` ，接着交换 `s[i]` 和 `s[j]` 处的字符。
+
+- 例如，在 `"abcd"` 中交换下标 `0` 和下标 `2` 的元素可以生成 `"cbad"` 。
+
+```go
+func buddyStrings(s string, goal string) bool {
+    // 1. 有两个地方不相同，其他地方都相同，且这两个地方处的元素一样
+    // 2. 全都相同，且有一个元素出现了两次
+    if len(s) != len(goal) {
+        return false
+    }
+    n := len(s)
+    
+    hasAppear := make([]bool, 128)  // 看一个元素是不是出现过
+    hasDuplicate := false
+    diffIndexes := make([]int, 0)  // 所有不同元素的下标
+    for i := 0; i < n; i++ {
+        if s[i] != goal[i] {
+            diffIndexes = append(diffIndexes, i)
+        }
+        if !hasDuplicate {
+            if hasAppear[int(s[i])] {
+                hasDuplicate = true
+            } else {
+                hasAppear[int(s[i])] = true
+            }
+        }
+    }
+
+    if len(diffIndexes) == 0 {
+        return hasDuplicate
+    } else if len(diffIndexes) == 2 {
+        return s[diffIndexes[0]] == goal[diffIndexes[1]] && s[diffIndexes[1]] == goal[diffIndexes[0]]
+    } else {
+        return false
+    }
+}
+```
+
+## 195. 柠檬水找零（860）
+
+在柠檬水摊上，每一杯柠檬水的售价为 `5` 美元。顾客排队购买你的产品，（按账单 `bills` 支付的顺序）一次购买一杯。
+
+每位顾客只买一杯柠檬水，然后向你付 `5` 美元、`10` 美元或 `20` 美元。你必须给每个顾客正确找零，也就是说净交易是每位顾客向你支付 `5` 美元。
+
+注意，一开始你手头没有任何零钱。
+
+给你一个整数数组 `bills` ，其中 `bills[i]` 是第 `i` 位顾客付的账。如果你能给每位顾客正确找零，返回 `true` ，否则返回 `false` 。
+
+```go
+func lemonadeChange(bills []int) bool {
+    countOf5 := 0
+    countOf10 := 0
+
+    for _, num := range bills {
+        if num == 5 {
+            countOf5++
+        } else if num == 10 {
+            if countOf5 >= 1 {
+                countOf10++
+                countOf5--
+            } else {
+                return false
+            }
+        } else {
+            if countOf10 >= 1 && countOf5 >= 1 {
+                countOf10--
+                countOf5--
+            } else if countOf5 >= 3 {
+                countOf5 -= 3
+            } else {
+                return false
+            }
+        }
+    }
+
+    return true
+}
+```
+
+## 196. 二进制间距（868）
+
+给定一个正整数 `n`，找到并返回 `n` 的二进制表示中两个 **相邻** 1 之间的 **最长距离** 。如果不存在两个相邻的 1，返回 `0` 。
+
+如果只有 `0` 将两个 `1` 分隔开（可能不存在 `0` ），则认为这两个 1 彼此 **相邻** 。两个 `1` 之间的距离是它们的二进制表示中位置的绝对差。例如，`"1001"` 中的两个 `1` 的距离为 3 。
+
+```go
+func binaryGap(n int) int {
+    first := true
+    indexDiff := 0
+    res := 0
+
+    for n != 0 {
+        if n & 1 == 1 {
+            // 是 1
+            if first {
+                first = false
+            } else {
+                res = max(res, indexDiff)
+            }
+            indexDiff = 0
+        }
+        indexDiff++
+        n = n >> 1
+    }
+
+    return res
+}
+```
+
+## 197. 三维形体投影面积（883）
+
+在 `n x n` 的网格 `grid` 中，我们放置了一些与 x，y，z 三轴对齐的 `1 x 1 x 1` 立方体。
+
+每个值 `v = grid[i][j]` 表示 `v` 个正方体叠放在单元格 `(i, j)` 上。
+
+现在，我们查看这些立方体在 `xy` 、`yz` 和 `zx` 平面上的*投影*。
+
+**投影** 就像影子，将 **三维** 形体映射到一个 **二维** 平面上。从顶部、前面和侧面看立方体时，我们会看到“影子”。
+
+返回 *所有三个投影的总面积* 。
+
+```go
+func projectionArea(grid [][]int) int {
+    m := len(grid)
+    n := len(grid[0])
+    
+    res1 := 0
+    for i := 0; i < m; i++ {
+        for j := 0; j < n; j++ {
+            if grid[i][j] != 0 {
+                res1++
+            }
+        }
+    }
+
+    res2 := 0
+    for i := 0; i < m; i++ {
+        maxHeight := 0
+        for j := 0; j < n; j++ {
+            maxHeight = max(maxHeight, grid[i][j])
+        }
+        res2 += maxHeight
+    }
+
+    res3 := 0
+    for j := 0; j < n; j++ {
+        maxHeight := 0
+        for i := 0; i < m; i++ {
+            maxHeight = max(maxHeight, grid[i][j])
+        }
+        res3 += maxHeight
+    }
+
+    return res1 + res2 + res3
+}
+```
+
+## 198. 两句话中的不常见单词（884）
+
+**句子** 是一串由空格分隔的单词。每个 **单词** 仅由小写字母组成。
+
+如果某个单词在其中一个句子中恰好出现一次，在另一个句子中却 **没有出现** ，那么这个单词就是 **不常见的** 。
+
+给你两个 **句子** `s1` 和 `s2` ，返回所有 **不常用单词** 的列表。返回列表中单词可以按 **任意顺序** 组织。
+
+```go
+func uncommonFromSentences(s1 string, s2 string) []string {
+    // 直接哈希
+    countS1 := make(map[string]int)
+    countS2 := make(map[string]int)
+
+    begin := 0
+    for i, c := range s1 {
+        if c == ' ' {
+            countS1[s1[begin:i]]++
+            begin = i + 1
+        }
+    }
+    countS1[s1[begin:]]++
+
+    begin = 0
+    for i, c := range s2 {
+        if c == ' ' {
+            countS2[s2[begin:i]]++
+            begin = i + 1
+        }
+    }
+    countS2[s2[begin:]]++
+
+    res := make([]string, 0)
+
+    for word, count := range countS1 {
+        if count == 1 && countS2[word] == 0 {
+            res = append(res, word)
+        }
+    }
+    for word, count := range countS2 {
+        if count == 1 && countS1[word] == 0 {
+            res = append(res, word)
+        }
+    }
+    
+    return res
+}
+```
 
 
 
@@ -419,58 +727,6 @@ func toGoatLatin(sentence string) string {
 待做题目：
 
 ```markdown
-824. 山羊拉丁文
-789
-65.4%
-简单
-830. 较大分组的位置
-764
-54.5%
-简单
-832. 翻转图像
-1209
-79.6%
-简单
-836. 矩形重叠
-823
-49.7%
-简单
-844. 比较含退格的字符串
-2412
-48.0%
-简单
-859. 亲密字符串
-969
-35.1%
-简单
-860. 柠檬水找零
-1821
-59.3%
-简单
-867. 转置矩阵
-987
-68.5%
-简单
-868. 二进制间距
-761
-70.1%
-简单
-872. 叶子相似的树
-1049
-65.4%
-简单
-876. 链表的中间结点
-4074
-71.9%
-简单
-883. 三维形体投影面积
-601
-76.9%
-简单
-884. 两句话中的不常见单词
-703
-71.5%
-简单
 888. 公平的糖果交换
 674
 63.9%
