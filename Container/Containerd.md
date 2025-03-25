@@ -389,7 +389,34 @@ ctr task delte nginx2
 ctr container create docker.io/library/busybox:latest busybox3 --mount type=bind,src=/tmp,dst=/hostdir,options=rbind:rw
 ```
 
+## 5. 对 `cert.d` 目录的理解
 
+之前在对 containerd 的配置中，我们会给 containerd 加一个如下的配置：
+
+```bash
+[plugins."io.containerd.grpc.v1.cri".registry]
+	config_path = "/etc/containerd/cert.d/"
+```
+
+以及还会在 `/etc/containerd/certs.d` 这个目录下放一些加速镜像文件的配置。
+
+一开始就可以注意到，这个加速地址的配置并不是总生效的，当使用 `crictl` 命令进行拉取的时候，这个加速镜像可以生效。但是如果使用 `ctr` 命令进行拉取，则不会使用到这个加速地址，我们还是拉不下来任何东西，除非在后面加一个 `--hosts-dir="/etc/containerd/certs.d"`。
+
+今天看到一句话解决了我这里的疑惑：CRI Plugin 的配置项仅仅作用于 CRI Plugin 插件，对于通过其他方式的调用，如 ctr、nerdctl、docker 等，均不起作用。
+
+OK 这样就好说了。我们知道 CRI 是在 kubernetes 和 container runtime 之间维护的一层东西。其中 CRI 是 Kubernetes 的一个接口，里面要实现 RuntimeService 和 ImageService 之类的方法，而 containerd 中通过 `CRI Plugin` 实现了这些方法，所以 containerd 可以接入 Kubernetes 的 CRI。其中，`CRI Plugin` 在早期的 containerd 版本中，是一个单独维护的项目，但是从 `containerd 1.1` 开始，这个插件就已经被集成到 `containerd` 主项目中了，并且默认开启。
+
+所以我们这个配置项是做给 CRI 的配置，也就是说只有通过 CRI 来调用 containerd 才会自动使用到这个配置（可以将 CRI 和 Kubernetes 进行绑定，提到 CRI 就一定是和 Kubernetes 相关的）。而 `crictl` 命令就是专门面向 kubernetes 的，例如和 pod 之类的资源关系比较紧密，也会自动将命名空间转向 `k8s.io` 之类的特性，所以用 `crictl` 就可以自动加载镜像加速。
+
+但是 `ctr` 呢？单独运行 `ctr` 我们是在通过 `ctr` 去调用 containerd，全程和 `CRI` 一点关系都没有，所以 `ctr` 默认不使用加速地址。
+
+那么 `nerdctl` 呢？今天试了一下 `nerdctl -h`，发现命令选项中有一个对于加速地址的参数：
+
+```bash
+--hosts-dir strings        A directory that contains <HOST:PORT>/hosts.toml (containerd style) or <HOST:PORT>/{ca.cert, cert.pem, key.pem} (docker style) (default [/etc/containerd/certs.d,/etc/docker/certs.d])
+```
+
+注意到其中的 `default [/etc/containerd/certs.d,/etc/docker/certs.d]`。于是 `nerdctl` 也可以直接使用到加速地址啦。
 
 
 

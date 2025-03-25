@@ -174,6 +174,17 @@ Markdown 支持引用其他文件中的标题，格式如下：
 }
 ```
 
+## 4. PicGo 图床
+
+设置阿里云：
+
+```bash
+echo "U2FsdGVkX1/pysQB2KTfk0BAftV85FrQW2YUiN0+j07P3jGAUxrLnEfDQre4FFzB
+LNbhYEl7GJ+MCVahQppYsrUlp+U0UxGPc9+lhoKqRC2Mmxvlti1kCHL4/6UUVbmS
+8RU3zawj2lBrk0cI+NSiXp7+MZKnXc+JbGTI+FOu0VudC9KSzJM3u0bpM1Wb4BW+
+35bWPvBirJX13X7ctCzldWGD1i0TRYjccB3klZSUOts=" | openssl enc -d -aes-256-cbc -pass pass:"密码密码密码" -base64
+```
+
 
 
 

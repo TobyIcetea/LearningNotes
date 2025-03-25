@@ -268,6 +268,22 @@ nmcli connection up ens160
 ip addr
 ```
 
+## 7. 加密一段字符串
+
+使用的算法是 `AES-256-CBC`：
+
+```bash
+# 加密
+echo -n "Hello world" | openssl enc -aes-256-cbc -salt -pass pass:"123456" -base64
+
+U2FsdGVkX1+zwbaMU9/Va7zD7XGJATT0WZ7e2cbGPpI=
+
+# 解密
+echo "U2FsdGVkX1+zwbaMU9/Va7zD7XGJATT0WZ7e2cbGPpI=" | openssl enc -d -aes-256-cbc -pass pass:"123456" -base64
+
+Hello world
+```
+
 
 
 

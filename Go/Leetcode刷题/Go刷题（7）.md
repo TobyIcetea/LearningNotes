@@ -1,6 +1,6 @@
 # Go 刷题（7）
 
-## 181. 托普利茨矩阵
+## 181. 托普利茨矩阵（766）
 
 给你一个 `m x n` 的矩阵 `matrix` 。如果这个矩阵是托普利茨矩阵，返回 `true` ；否则，返回 `false` *。*
 
@@ -192,7 +192,7 @@ func uniqueMorseRepresentations(words []string) int {
 }
 ```
 
-## 186. 写字符串需要的行数
+## 186. 写字符串需要的行数（806）
 
 我们要把给定的字符串 `S` 从左到右写到每一行上，每一行的最大宽度为100个单位，如果我们在写某个字母的时候会使这行超过了100 个单位，那么我们应该把这个字母写到下一行。我们给定了一个数组 `widths` ，这个数组 widths[0] 代表 'a' 需要的单位， widths[1] 代表 'b' 需要的单位，...， widths[25] 代表 'z' 需要的单位。
 
@@ -716,6 +716,205 @@ func uncommonFromSentences(s1 string, s2 string) []string {
 }
 ```
 
+## 199. 公平的糖果交换（888）
+
+爱丽丝和鲍勃拥有不同总数量的糖果。给你两个数组 `aliceSizes` 和 `bobSizes` ，`aliceSizes[i]` 是爱丽丝拥有的第 `i` 盒糖果中的糖果数量，`bobSizes[j]` 是鲍勃拥有的第 `j` 盒糖果中的糖果数量。
+
+两人想要互相交换一盒糖果，这样在交换之后，他们就可以拥有相同总数量的糖果。一个人拥有的糖果总数量是他们每盒糖果数量的总和。
+
+返回一个整数数组 `answer`，其中 `answer[0]` 是爱丽丝必须交换的糖果盒中的糖果的数目，`answer[1]` 是鲍勃必须交换的糖果盒中的糖果的数目。如果存在多个答案，你可以返回其中 **任何一个** 。题目测试用例保证存在与输入对应的答案。
+
+```go
+import "sort"
+
+func fairCandySwap(aliceSizes []int, bobSizes []int) []int {
+    sort.Ints(aliceSizes)
+    sort.Ints(bobSizes)
+
+    binaryFind := func(arr []int, target int) int {
+        left := 0
+        right := len(arr) - 1
+        for left <= right {
+            mid := (left + right) / 2
+            if arr[mid] > target {
+                right = mid - 1
+            } else if arr[mid] < target {
+                left = mid + 1
+            } else {
+                return mid
+            }
+        }
+        return -1
+    }
+
+    sum1 := 0
+    sum2 := 0
+    for _, num := range aliceSizes {
+        sum1 += num
+    }
+    for _, num := range bobSizes {
+        sum2 += num
+    }
+    half := (sum1 + sum2) / 2
+
+    if sum1 < half {
+        diff := sum2 - half
+        // 对于 arr1 中的每一个数字 num，差值为 target - sum1
+        // 看 num + diff 在不在 arr2 中
+        for i, num := range aliceSizes {
+            if i > 0 && aliceSizes[i] == aliceSizes[i - 1] {
+                continue
+            }
+            if binaryFind(bobSizes, num + diff) != -1 {
+                return []int{num, num + diff}
+            }
+        }
+    } else {
+        // sum1 > target
+        diff := sum1 - half
+        for i, num := range bobSizes {
+            if i > 0 && bobSizes[i] == bobSizes[i - 1] {
+                continue
+            }
+            if binaryFind(aliceSizes, num + diff) != -1 {
+                return []int{num + diff, num}
+            }
+        }
+    }
+    return []int{}
+
+}
+```
+
+## 200. 三维形体的表面积（892）
+
+给你一个 `n * n` 的网格 `grid` ，上面放置着一些 `1 x 1 x 1` 的正方体。每个值 `v = grid[i][j]` 表示 `v` 个正方体叠放在对应单元格 `(i, j)` 上。
+
+放置好正方体后，任何直接相邻的正方体都会互相粘在一起，形成一些不规则的三维形体。
+
+请你返回最终这些形体的总表面积。
+
+**注意：**每个形体的底面也需要计入表面积中。
+
+```go
+func surfaceArea(grid [][]int) int {
+    res := 0
+
+    n := len(grid)
+    // 上面和底面
+    for i := 0; i < n; i++ {
+        for j := 0; j < n; j++ {
+            if grid[i][j] != 0 {
+                res++
+            }
+        }
+    }
+    res += res
+
+    // 四面
+    pre := 0
+    for i := 0; i < n; i++ {
+        pre = 0
+        for j := 0; j < n; j++ {
+            if grid[i][j] > pre {
+                res += grid[i][j] - pre
+            }
+            pre = grid[i][j]
+        }
+    }
+
+    for i := 0; i < n; i++ {
+        pre = 0
+        for j := n - 1; j >= 0; j-- {
+            if grid[i][j] > pre {
+                res += grid[i][j] - pre
+            }
+            pre = grid[i][j]
+        }
+    }
+
+
+    for j := 0; j < n; j++ {
+        pre = 0
+        for i := 0; i < n; i++ {
+            if grid[i][j] > pre {
+                res += grid[i][j] - pre
+            }
+            pre = grid[i][j]
+        }
+    }
+
+    
+    for j := 0; j < n; j++ {
+        pre = 0
+        for i := n - 1; i >= 0; i-- {
+            if grid[i][j] > pre {
+                res += grid[i][j] - pre
+            }
+            pre = grid[i][j]
+        }
+    }
+
+    return res
+}
+```
+
+## 201. 递增顺序搜索树（897）
+
+给你一棵二叉搜索树的 `root` ，请你 **按中序遍历** 将其重新排列为一棵递增顺序搜索树，使树中最左边的节点成为树的根节点，并且每个节点没有左子节点，只有一个右子节点。
+
+```go
+func increasingBST(root *TreeNode) *TreeNode {
+    var pre *TreeNode
+    var res *TreeNode
+
+    var inorder func(root *TreeNode)
+    inorder = func(root *TreeNode) {
+        if root == nil {
+            return
+        }
+        inorder(root.Left)
+        root.Left = nil
+        if pre == nil {
+            res = root
+        } else {
+            pre.Right = root
+        }
+        pre = root
+        inorder(root.Right)
+    }
+    inorder(root)
+
+    return res
+}
+```
+
+## 202. 按奇偶排序数组（905）
+
+给你一个整数数组 `nums`，将 `nums` 中的的所有偶数元素移动到数组的前面，后跟所有奇数元素。
+
+返回满足此条件的 **任一数组** 作为答案。
+
+```go
+func sortArrayByParity(nums []int) []int {
+    // 对撞指针
+    i := 0
+    j := len(nums) - 1
+    for i < j {
+        for i < j && nums[i] & 1 == 0 {
+            i++
+        }
+        for i < j && nums[j] & 1 == 1 {
+            j--
+        }
+        if i < j {
+            nums[i], nums[j] = nums[j], nums[i]
+        }
+    }
+    return nums
+}
+```
+
 
 
 
@@ -727,26 +926,6 @@ func uncommonFromSentences(s1 string, s2 string) []string {
 待做题目：
 
 ```markdown
-888. 公平的糖果交换
-674
-63.9%
-简单
-892. 三维形体的表面积
-801
-65.3%
-简单
-896. 单调数列
-1237
-56.6%
-简单
-897. 递增顺序搜索树
-960
-73.8%
-简单
-905. 按奇偶排序数组
-1617
-71.3%
-简单
 908. 最小差值 I
 726
 76.8%
