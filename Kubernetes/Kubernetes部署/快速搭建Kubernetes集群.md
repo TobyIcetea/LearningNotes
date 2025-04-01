@@ -155,25 +155,18 @@ node节点：   node2
     
     # 添加需要加载的模块写入脚本文件
     # ！！！如果是比较新的 Linux 内核中，可能就没有 nf_conntrack_ipv4 这个模块。因为这个模块被合并到 nf_conntrack 中了。
-    cat <<EOF >  /etc/sysconfig/modules/ipvs.modules
-    #!/bin/bash
-    modprobe -- ip_vs
-    modprobe -- ip_vs_rr
-    modprobe -- ip_vs_wrr
-    modprobe -- ip_vs_sh
-    modprobe -- nf_conntrack_ipv4
+    cat <<EOF >  /etc/modules-load.d/ipvs.conf
+    ip_vs
+    ip_vs_rr
+    ip_vs_wrr
+    ip_vs_sh
+    nf_conntrack_ipv4
     EOF
-    
-    # 为脚本文件添加执行权限
-    chmod +x /etc/sysconfig/modules/ipvs.modules
-    
-    # 执行脚本文件
-    /bin/bash /etc/sysconfig/modules/ipvs.modules
     
     # 查看对应的模块是否加载成功
     lsmod | grep -e ip_vs -e nf_conntrack
     ```
-
+    
 8. 重启服务器。
 
     上面的步骤完成之后，需要重启 linux 操作系统。
@@ -456,6 +449,8 @@ systemctl restart containerd
 
 ## 4. 安装 K8s 组件
 
+CentOS 安装方法：
+
 ```bash
 # 由于 K8s 的镜像源在国外，速度比较慢，这里换成国内的镜像源
 cat << EOF > /etc/yum.repos.d/kubernetes.repo
@@ -467,7 +462,7 @@ gpgcheck=0
 repo_gpgcheck=0
 gpgkey=http://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
        http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
-EOF 
+EOF
 # 如果是 arm64 架构的机器，要将上面的 x86_64 修改为 aarch64
 
 # 安装 kubeadm、kubelet 和 kubectl
@@ -484,6 +479,23 @@ EOF
 systemctl start kubelet
 systemctl enable kubelet
 ```
+
+如果是 Ubuntu，使用下面的安装方法：
+
+```bash
+apt-get update && apt-get install -y apt-transport-https
+curl -fsSL https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.28/deb/Release.key |
+    gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.28/deb/ /" |
+    tee /etc/apt/sources.list.d/kubernetes.list
+apt-get update
+apt-get install -y kubelet kubeadm kubectl
+
+systemctl start kubelet
+systemctl enable kubelet
+```
+
+
 
 ## 5. 集群初始化
 

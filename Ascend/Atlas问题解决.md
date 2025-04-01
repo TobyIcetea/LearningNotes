@@ -121,24 +121,6 @@ root@dfcc4c5ff4fd:/# ldd /usr/local/sbin/npu-smi
         。。。。。。
 ```
 
-发现其中的 libmmpa.so 是找不到的。
-
-但是在宿主机，也就是开发板中，我们发现 libmmpa.so 在另外一个文件夹中：
-
-```bash
-libmmpa.so => /usr/local/Ascend/ascend-toolkit/latest/lib64/libmmpa.so (0x0000e7fffc682000)
-```
-
-带着这个思路，我尝试去在启动的时候挂载上这个文件夹：
-
-（待完成）
-
-
-
-
-
-
-
 ## 2. containerd 中运行容器
 
 以 busybox 容器举例，首先要确保镜像列表中有 busybox：
@@ -273,7 +255,7 @@ tail -f ./record.log
 
 这样就可以看到当前 CPU 和 NPU 的使用情况。
 
-## 5. Atlas 系统时间不同步
+## 5. Atlas 系统时间不同步（OpenEuler）
 
 初始安装好的系统的系统时间是不对的，所以我们通过 ntpdate 进行系统时间的同步：
 
@@ -287,44 +269,14 @@ cat << EOF >> /etc/crontab
 EOF
 
 # 设定时区
+# 其实这是关键的一步
 timedatectl set-timezone Asia/Shanghai
 
 # 验证时间对不对
 date
 ```
 
-## 6. 对开发板使用操作系统的想法
-
-似乎 OpenEuler 初始安装好就是有缺陷的。
-
-在初始安装好的 OpenEuler 上，直接执行如下命令开启 notebook，运行预装的一些 demo：
-
-```bash
-cd /home/HwHiAiUser/samples/notebooks
-
-. /usr/local/Ascend/ascend-toolkit/set_env.sh
-export PYTHONPATH=/usr/local/Ascend/thirdpart/aarch64/acllite:$PYTHONPATH
-if [ $# -eq 1 ];then
-    jupyter lab --ip $1 --allow-root --no-browser
-else
-    jupyter lab --ip 192.168.137.100 --allow-root --no-browser
-fi
-```
-
-然后运行 yolov5 的 demo，在执行 `import torchvision` 的时候，提示报错：
-
-```bash
-/usr/local/lib64/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: 
-  warn(f"Failed to load image Python extension: {e}")
-```
-
-原因似乎是 torch 版本和 torchvision 版本不匹配导致的，但是我尝试了一些方法，发现我还是解决不了这个问题。
-
-> 额，但是我换了 Ubuntu 之后，好像也是一样的。也会出现这个报错。
-
-于是换 Ubuntu 吧，Ascend 的开发板，在进行应用适配的时候，似乎还是首先考虑 Ubuntu 的。
-
-## 7. 从 Ubuntu 开始
+## 6. 从 Ubuntu 开始
 
 首先我不太确定，我们的开发板上到底有没有安装驱动、固件、CANN 之类的产品？
 
@@ -409,73 +361,63 @@ drwxr-xr-x  3 root       root       4096 Jun  7  2023 thirdpart/
 
 比 OpenEuler 那边多了 firmware、mxVision，或许是那边欧拉把这些东西都放到其他地方了，但是看起来 Ubuntu 给的更全。
 
+## 7. 组件版本的统一
 
+于是我们得到 Atlas 开发板比较兼容的组件版本列表，或者之后，如果我们不知道该选择什么版本的组件，就直接从这里查表：
 
+> RC1、RC2 等字段的含义：RC 表示 Release Candidate，表示候选发行版。
 
+| 组件                   | 版本              | 备注                                                         |
+| ---------------------- | ----------------- | ------------------------------------------------------------ |
+| 驱动 Driver            | 23.0.RC3          |                                                              |
+| 固件 Fireware          | 7.1.0.3.220       |                                                              |
+| CANN                   | 7.0.RC1           |                                                              |
+| NNRT                   | 7.0               |                                                              |
+| Ascend  Docker Runtime | 6.0.0             |                                                              |
+| Python                 | 3.9.2             |                                                              |
+| torch                  | 1.11.0            | pip install torch==1.11.0                                    |
+| torchvision            | 0.12.0            |                                                              |
+| torchaudio             | 0.11.0            |                                                              |
+| torch_npu              | 1.11.0.post8-cp39 | pip3 install torch_npu-1.11.0.post8-cp39-cp39-linux_aarch64.whl |
+| ais_bench              | 0.0.2             | pip3 install aclruntime-0.0.2-cp39-cp39-linux_aarch64.whl<br/>pip3 install ais_bench-0.0.2-py3-none-any.whl |
 
+## 8. 在本地通过一个 python 文件运行 yolo
 
-
-
-
-
-
-## 10. 在本地通过一个 python 文件运行 yolo
-
-首先拷贝一份 `/home/HwHiAiUser/samples/notebooks/01-yolov5/` 这个目录到工作目录下，之后把其中的 `main.ipynb` 文件转换为 `.py` 文件：
-
-```bash
-jupyter nbconvert --to script main.ipynb
-```
-
-尝试将 yolo 目录挂载到容器中：
-
-```bash
-ctr run --rm --runtime io.containerd.runtime.v1.linux -t --env ASCEND_VISIBLE_DEVICES=0 --env ASCEND_ALLOW_LINK=True docker.io/library/busybox:latest busybox2 sh 
---mount type=bind,src=/tmp,dst=/hostdir,options=rbind:rw
-```
-
-给开发板安装 Docker：
+### 安装 Docker
 
 ```bash
-dnf install docker-ce
+# 安装
+apt-get update
+    
+curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://mirrors.ustc.edu.cn/docker-ce/linux/ubuntu/ \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+apt-get update
+
+apt-get install docker-ce docker-ce-cli containerd.io
+
 systemctl enable --now docker
+
+# 配置加速
+mkdir /etc/docker
+cat <<EOF >  /etc/docker/daemon.json
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "registry-mirrors": [ 
+	"https://1ecf599359e64520bd04701e6d7184e8.mirror.swr.myhuaweicloud.com",
+	"https://le2c3l3b.mirror.aliyuncs.com"
+  ]
+}
+EOF
 ```
 
-使用 Docker 运行镜像：
+### 业务代码
 
-```bash
-docker run --rm -it -e ASCEND_VISIBLE_DEVICES=0 -e ASCEND_ALLOW_LINK=True image:v1 bash
-```
-
-
-
-下载 ascend-infer 镜像：
-
-```bash
-docker login -u cn-south-1@JY27ELOTNN4YC8LPI82J swr.cn-south-1.myhuaweicloud.com
-
-c1520f8d07ba557de0340940c350d9eca2217dabb73c5e7bf3b00c6995f1c01e
-
-docker pull swr.cn-south-1.myhuaweicloud.com/ascendhub/ascend-infer:24.0.RC3-openeuler20.03
-```
-
-安装新版本 torch：
-
-[网站](https://www.hiascend.com/document/detail/zh/Pytorch/600/configandinstg/instg/insg_0001.html)
-
-![image-20250323162649101](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250323162649101.png)
-
-```bash
-# 下载PyTorch安装包
-wget https://download.pytorch.org/whl/cpu/torch-2.1.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
-# 下载torch_npu插件包
-wget https://gitee.com/ascend/pytorch/releases/download/v5.0.0-pytorch2.1.0/torch_npu-2.1.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
-# 安装命令
-pip3 install torch-2.1.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
-pip3 install torch_npu-2.1.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
-```
-
-代码：
+本次使用到的 yolov5 的 main.py 代码如下：
 
 ```python
 import cv2
@@ -632,6 +574,29 @@ label_path = './coco_names.txt'
 model = InferSession(0, model_path)
 labels_dict = get_labels_from_txt(label_path)
 
+infer_mode = 'video'
+
+if infer_mode == 'image':
+    img_path = 'world_cup.jpg'
+    infer_image(img_path, model, labels_dict, cfg)
+elif infer_mode == 'camera':
+    infer_camera(model, labels_dict, cfg)
+elif infer_mode == 'video':
+    video_path = 'racing.mp4'
+    infer_video(video_path, model, labels_dict, cfg)
+
+cfg = {
+    'conf_thres': 0.4,  # 模型置信度阈值，阈值越低，得到的预测框越多
+    'iou_thres': 0.5,  # IOU阈值，高于这个阈值的重叠预测框会被过滤掉
+    'input_shape': [640, 640],  # 模型输入尺寸
+}
+
+model_path = 'yolo.om'
+label_path = './coco_names.txt'
+# 初始化推理模型
+model = InferSession(0, model_path)
+labels_dict = get_labels_from_txt(label_path)
+
 
 infer_mode = 'video'
 
@@ -643,21 +608,383 @@ elif infer_mode == 'camera':
 elif infer_mode == 'video':
     video_path = 'racing.mp4'
     infer_video(video_path, model, labels_dict, cfg)
+
 ```
 
+### 打包业务项目
+
+进入到 yolo 的项目目录中，执行如下命令：
+
+```bash
+# 安装工具
+pip install pipreqs
+# 生成 requirements 文件
+pipreqs ./ --encoding=utf-8 --force
+```
+
+之后看生成的 requirements.txt 文件，内容如下：
+
+```bash
+(base) root@davinci-mini:~/workdir/01-yolov5# cat requirements.txt
+ais_bench==0.0.2
+numpy==1.22.4
+opencv_python_headless==4.7.0.72
+scikit_video==1.1.11
+torch==1.13.0
+torchvision==0.14.0
+```
+
+其中的第一行 ais_bench 把它注释掉，因为这是 Ascend 自己的一个库，后面我们要通过 whl 文件单独进行安装，直接使用 pip install 去拉取库文件是拉不到的。
+
+之后制作业务推理包：
+
+```bash
+# 打包业务程序
+tar zcvf yolov5.tgz coco_names.txt det_utils.py main.py racing.mp4 yolo.om requirements.txt
+```
+
+### 制作 Dockerfile
+
+创建一个 Dockerfile 的工作路径，进入到该路径下，之后执行：
+
+```bash
+# 拉取镜像
+docker pull python:3.9.2
+
+# 将 /etc/slog.conf 复制过来
+cp /etc/slog.conf slog.conf
+
+# 将 yolov5.tgz 复制过来
+cp (yolov5.tgz 存放位置) ./
+
+# 将 NNRT 安装包复制过来
+cp (Ascend-cann-nnrt_7.0.0_linux-aarch64.run 存放位置) ./
+
+# 将 torch_npu 插件复制过来
+cp (torch_npu-1.11.0.post8-cp39-cp39-linux_aarch64.whl 存放位置) ./
+
+# 将 ais_bench 的安装包复制过来
+cp (aclruntime-0.0.2-cp39-cp39-linux_aarch64.whl 存放位置) .
+cp (ais_bench-0.0.2-py3-none-any.whl 存放位置) .
+
+
+# 创建安装脚本：install.sh
+cat << EOF > install.sh
+
+#!/bin/sh
+cd /home/AscendWork
+tar zxvf yolov5.tgz
+
+EOF
+
+
+# 创建运行脚本：run.sh
+cat << EOF > run.sh
+
+#!/bin/bash
+mkdir /dev/shm/dmp
+mkdir /home/HwHiAiUser/hdc_ppc
+nohup /var/dmp_daemon -I -M -U 8087 >&/dev/null &
+/var/slogd -d
+#启动推理程序，若用户不涉及推理程序可将如下命令注释
+#进入业务推理程序的可执行文件所在目录，请根据实际可执行文件所在目录配置
+cd /home/AscendWork/dist
+#运行可执行文件，请根据实际文件名称配置
+python3 main.py
+
+EOF
+```
+
+创建加速镜像文件 `sources.list`（Debian 10）：
+
+```bash
+deb http://mirrors.aliyun.com/debian/ buster main non-free contrib
+deb-src http://mirrors.aliyun.com/debian/ buster main non-free contrib
+deb http://mirrors.aliyun.com/debian-security buster/updates main
+deb-src http://mirrors.aliyun.com/debian-security buster/updates main
+deb http://mirrors.aliyun.com/debian/ buster-updates main non-free contrib
+deb-src http://mirrors.aliyun.com/debian/ buster-updates main non-free contrib
+```
+
+之后就可以制作 dockerfile：
+
+```dockerfile
+FROM python:3.9.2
+
+USER root
+
+# 这表示在进行 build 操作时，可以通过 --build-arg 来指定构建参数
+ARG NNRT_PKG
+ARG DIST_PKG
+# 本文以/usr/local/Ascend目录为例作为NNRT安装目录，如果您希望安装在其他目录，请修改为您希望的目录
+ARG ASCEND_BASE=/usr/local/Ascend
+WORKDIR /home/AscendWork
+COPY $NNRT_PKG .
+COPY $DIST_PKG .
+COPY install.sh .
+
+# 创建运行推理应用的用户及组，HwHiAiUser，HwDmUser，HwBaseUser的UID与GID分别为1000，1101，1102为例
+# 在 Docker 镜像中创建三个用户（HwHiAiUser、HwDmUser、HwBaseUser）和对应的用户组
+# 同时，将 HwHiAiUser 用户添加到 HwDmUser 和 HwBaseUser 用户组中，使其拥有这些组的权限
+RUN umask 0022 && \
+    groupadd  HwHiAiUser -g 1000 && \
+    useradd -d /home/HwHiAiUser -u 1000 -g 1000 -m -s /bin/bash HwHiAiUser && \
+    groupadd HwDmUser -g 1101 && \
+    useradd -d /home/HwDmUser -u 1101 -g 1101 -m -s /bin/bash HwDmUser && \
+    usermod -aG HwDmUser HwHiAiUser && \
+    groupadd HwBaseUser -g 1102 && \
+    useradd -d /home/HwBaseUser -u 1102 -g 1102 -m -s /bin/bash HwBaseUser && \
+    usermod -aG HwBaseUser HwHiAiUser
+
+# 安装nnrt,解压推理程序
+# 将几个命令分开执行，方便构建
+RUN chmod +x $NNRT_PKG && \
+    ./$NNRT_PKG --quiet --install --install-path=$ASCEND_BASE \
+    --install-for-all --force
+RUN sh install.sh
+RUN chown -R HwHiAiUser:HwHiAiUser /home/AscendWork/ && \
+    rm $NNRT_PKG && \
+    rm $DIST_PKG && \
+    rm install.sh
+
+ENV LD_LIBRARY_PATH=/usr/local/Ascend/nnrt/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/lib64
+ENV LD_PRELOAD=/lib/aarch64-linux-gnu/libc.so.6
+
+RUN ln -sf /lib /lib64 && \
+    mkdir /var/dmp && \
+    mkdir /usr/slog && \
+    chown HwHiAiUser:HwHiAiUser /usr/slog && \
+    chown HwHiAiUser:HwHiAiUser /var/dmp
+
+# 拷贝日志配置文件
+COPY --chown=HwHiAiUser:HwHiAiUser slog.conf /etc
+
+COPY --chown=HwHiAiUser:HwHiAiUser run.sh /home/AscendWork/run.sh
+RUN chmod 640 /etc/slog.conf && \
+    chmod +x /home/AscendWork/run.sh
+
+# -------------------------------------------------------------------
+# 从这部分开始定制
+
+# 换源
+COPY sources.list /etc/apt/sources.list
+# 安装 libgl 库，安装 python 项目依赖
+RUN apt-get update && apt-get install -y libgl1
+RUN pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+
+# 安装 torch_npu 插件
+COPY torch_npu-1.11.0.post8-cp39-cp39-linux_aarch64.whl .
+RUN pip3 install torch_npu-1.11.0.post8-cp39-cp39-linux_aarch64.whl
+
+# 安装 ais_bench 库
+COPY aclruntime-0.0.2-cp39-cp39-linux_aarch64.whl .
+COPY ais_bench-0.0.2-py3-none-any.whl .
+RUN pip3 install aclruntime-0.0.2-cp39-cp39-linux_aarch64.whl
+RUN pip3 install ais_bench-0.0.2-py3-none-any.whl
+
+# 设置环境变量
+RUN . /usr/local/Ascend/nnrt/set_env.sh && chmod 755 yolo.om
+
+# -------------------------------------------------------------------
+
+
+USER 1000
+CMD bash /home/AscendWork/run.sh
+
+```
+
+### 构建镜像
+
+（注意其中的 NNRT_PKG 和 DIST_PKG 需要自行更换）
+
+```bash
+docker build -t ascend-infer:0329 --build-arg NNRT_PKG=./Ascend-cann-nnrt_7.0.0_linux-aarch64.run --build-arg DIST_PKG=./yolov5.tgz .
+```
+
+### 启动容器（Ubuntu）
+
+这里就说了 Ubuntu 的，OpenEuler 可以查：[边缘设备 CANN 部署文档](https://support.huawei.com/enterprise/zh/doc/EDOC1100423566/4a72915b?idPath=23710424|251366513|254884019|261408772|258915651)
+
+```bash
+docker run --rm --network host -it -u HwHiAiUser:HwHiAiUser --pid=host \
+--device=/dev/upgrade:/dev/upgrade \
+--device=/dev/davinci0:/dev/davinci0 \
+--device=/dev/davinci_manager_docker:/dev/davinci_manager \
+--device=/dev/vdec:/dev/vdec \
+--device=/dev/vpc:/dev/vpc \
+--device=/dev/pngd:/dev/pngd \
+--device=/dev/venc:/dev/venc \
+--device=/dev/sys:/dev/sys \
+--device=/dev/svm0 \
+--device=/dev/acodec:/dev/acodec \
+--device=/dev/ai:/dev/ai \
+--device=/dev/ao:/dev/ao \
+--device=/dev/hdmi:/dev/hdmi \
+--device=/dev/ts_aisle:/dev/ts_aisle \
+--device=/dev/dvpp_cmdlist:/dev/dvpp_cmdlist \
+-v /etc/sys_version.conf:/etc/sys_version.conf:ro \
+-v /etc/hdcBasic.cfg:/etc/hdcBasic.cfg:ro \
+-v /usr/lib64/libaicpu_processer.so:/usr/lib64/libaicpu_processer.so:ro \
+-v /usr/lib64/libaicpu_prof.so:/usr/lib64/libaicpu_prof.so:ro \
+-v /usr/lib64/libaicpu_sharder.so:/usr/lib64/libaicpu_sharder.so:ro \
+-v /usr/lib64/libadump.so:/usr/lib64/libadump.so:ro \
+-v /usr/lib64/libtsd_eventclient.so:/usr/lib64/libtsd_eventclient.so:ro \
+-v /usr/lib64/libaicpu_scheduler.so:/usr/lib64/libaicpu_scheduler.so:ro \
+-v /usr/lib/aarch64-linux-gnu/libcrypto.so.1.1:/usr/lib64/libcrypto.so.1.1:ro \
+-v /usr/lib/aarch64-linux-gnu/libyaml-0.so.2.0.6:/usr/lib64/libyaml-0.so.2:ro \
+-v /usr/lib64/libdcmi.so:/usr/lib64/libdcmi.so:ro \
+-v /usr/lib64/libmpi_dvpp_adapter.so:/usr/lib64/libmpi_dvpp_adapter.so:ro \
+-v /usr/lib64/aicpu_kernels/:/usr/lib64/aicpu_kernels/:ro \
+-v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi:ro \
+-v /usr/lib64/libstackcore.so:/usr/lib64/libstackcore.so:ro \
+-v /usr/lib64/libunified_timer.so:/usr/lib64/libunified_timer.so \
+-v /usr/lib64/libdp.so:/usr/lib64/libdp.so \
+-v /usr/lib64/libtensorflow.so:/usr/lib64/libtensorflow.so \
+-v /usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64:ro \
+-v /var/slogd:/var/slogd:ro \
+-v /var/dmp_daemon:/var/dmp_daemon:ro \
+-- ascend-infer:0329 /bin/bash
+```
+
+容器启动之后，在容器中执行如下命令查看当前 docker 容器中可以使用的 davinci 设备：
+
+```bash
+ls /dev/ | grep davinci*
+```
+
+执行如下命令查看挂载的芯片状态是否正常：
+
+```bash
+npu-smi info
+```
+
+## 9. npu-smi info 报错（待解决）
+
+在部署好容器之后，发现运行 `npu-smi info` 总是报错：
+
+```bash
+[ERROR] DRV(9,npu-smi):2025-03-29-11:21:16.865.482 [dm_udp.c:91][dmp] [__dm_send_msg 91] sendmsg fail:2.
+[ERROR] DRV(9,npu-smi):2025-03-29-11:21:16.865.610 [dm_udp.c:134][dmp] [__dm_udp_send 134] __dm_send_msg: sendto fail.errno=2
+[ERROR] DRV(9,npu-smi):2025-03-29-11:21:16.865.635 [dm_msg_intf.c:757][dmp] [dm_send_req 757] failed call intf->send_msg, ret = 2, send_msg->opcode = 0xf.
+[ERROR] DRV(9,npu-smi):2025-03-29-11:21:16.865.662 [dsmi_common.c:642][dmp] [_dsmi_send_msg_rec_res 642] call dev_mon_send_request error:27.
+```
+
+至此仍然不会解决……
+
+## 10. 运行多个容器竞争 npu
+
+### 情况概述
+
+在物理机上，运行多个 yolo 算法，此时可以看到通过 npu-smi 看到 NPU 的 AI 占用率是一直在上升的。也就是说，物理机中无论开启运行多少个 yolo 副本，都不会发生资源争用的问题。
+
+但是在容器中，就出现问题了：我就开启了两个容器，两个容器同时执行 `python3 ./main.py`（同时执行 yolo 推理任务），只有第一个运行的副本可以成功运行，后面运行的副本都会报错：
+
+```bash
+[ACL ERROR] EL0005: The resources are busy.
+        Possible Cause: 1. The resources have been occupied. 2. The device is being reset. 3. Software is not ready.
+        Solution: 1. Close applications not in use. 2. Wait for a while and try again.
+        TraceBack (most recent call last):
+        Invalid devId, current device=0, valid devId range is [0, 0)[FUNC:ContextCreate][FILE:api_impl.cc][LINE:2615]
+        rtCtxCreateEx execute failed, reason=[device id error][FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:50]
+        create context failed, device is 0, runtime errorCode is 107001[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:161]
+        ctx is NULL![FUNC:GetDevErrMsg][FILE:api_impl.cc][LINE:4541]
+        The argument is invalid.Reason: rtGetDevMsg execute failed, reason=[context pointer null]
+```
+
+这种情况只有在容器中才会出现，如果我们在物理机中直接运行 yolo 推理，之后在容器中再启动一个推理程序的话，也不会报错。
+
+### 切分逻辑 NPU
+
+我们一开始在启动容器的时候，使用的挂载参数如下：
+
+```bash
+--device=/dev/upgrade:/dev/upgrade \
+--device=/dev/davinci0:/dev/davinci0 \
+--device=/dev/davinci_manager_docker:/dev/davinci_manager \
+--device=/dev/vdec:/dev/vdec \
+--device=/dev/vpc:/dev/vpc \
+--device=/dev/pngd:/dev/pngd \
+--device=/dev/venc:/dev/venc \
+--device=/dev/sys:/dev/sys \
+--device=/dev/svm0 \
+--device=/dev/acodec:/dev/acodec \
+--device=/dev/ai:/dev/ai \
+--device=/dev/ao:/dev/ao \
+--device=/dev/hdmi:/dev/hdmi \
+--device=/dev/ts_aisle:/dev/ts_aisle \
+--device=/dev/dvpp_cmdlist:/dev/dvpp_cmdlist \
+```
+
+然后在容器中，查看 `/dev` 下面的设备：
+
+```bash
+HwHiAiUser@davinci-mini:/home/AscendWork$ ls -l /dev
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218, 32 Mar 30 07:25 acodec
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218,  6 Mar 30 07:25 ai
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218,  7 Mar 30 07:25 ao
+crw--w---- 1 HwHiAiUser tty        136,  0 Mar 30 07:36 console
+lrwxrwxrwx 1 root       root            11 Mar 30 07:25 core -> /proc/kcore
+crw-rw---- 1 HwHiAiUser HwHiAiUser 236,  0 Mar 30 07:25 davinci0
+crw-rw---- 1 HwHiAiUser HwHiAiUser 237,  0 Mar 30 07:25 davinci_manager
+crw-rw---- 1 HwHiAiUser HwHiAiUser 504,  0 Mar 30 07:25 dvpp_cmdlist
+lrwxrwxrwx 1 root       root            13 Mar 30 07:25 fd -> /proc/self/fd
+crw-rw-rw- 1 root       root         1,  7 Mar 30 07:25 full
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218, 19 Mar 30 07:25 hdmi
+drwxrwxrwt 2 root       root            40 Mar 30 07:25 mqueue
+crw-rw-rw- 1 root       root         1,  3 Mar 30 07:25 null
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218, 44 Mar 30 07:25 pngd
+lrwxrwxrwx 1 root       root             8 Mar 30 07:25 ptmx -> pts/ptmx
+drwxr-xr-x 2 root       root             0 Mar 30 07:25 pts
+crw-rw-rw- 1 root       root         1,  8 Mar 30 07:25 random
+drwxrwxrwt 2 root       root            40 Mar 30 07:25 shm
+lrwxrwxrwx 1 root       root            15 Mar 30 07:25 stderr -> /proc/self/fd/2
+lrwxrwxrwx 1 root       root            15 Mar 30 07:25 stdin -> /proc/self/fd/0
+lrwxrwxrwx 1 root       root            15 Mar 30 07:25 stdout -> /proc/self/fd/1
+crw-rw---- 1 HwHiAiUser HwHiAiUser  10, 60 Mar 30 07:25 svm0
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218,  8 Mar 30 07:25 sys
+crw-rw---- 1 HwHiAiUser HwHiAiUser 505,  0 Mar 30 07:25 ts_aisle
+crw-rw-rw- 1 root       root         5,  0 Mar 30 07:25 tty
+crw-rw---- 1 HwBaseUser HwBaseUser 506,  0 Mar 30 07:25 upgrade
+crw-rw-rw- 1 root       root         1,  9 Mar 30 07:25 urandom
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218,  3 Mar 30 07:25 vdec
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218,  2 Mar 30 07:25 venc
+crw-rw---- 1 HwHiAiUser HwHiAiUser 218, 43 Mar 30 07:25 vpc
+crw-rw-rw- 1 root       root         1,  5 Mar 30 07:25 zero
+```
+
+昇腾的异构计算架构（CANN）默认将NPU设备视为独占型资源。即使通过`--device=/dev/davinci0`将设备挂载到多个容器，CANN的运行时引擎（如AscendCL）会检测到设备已被占用，并拒绝第二个进程的初始化请求。
+
+昇腾虚拟化实例功能：通过资源虚拟化的方式将物理机或虚拟机配置的NPU（昇腾AI处理器）切分成若干份vNPU（虚拟NPU）挂载到容器中，支持多用户共同使用一个NPU，提高资源利用率。
+
+起初我们执行 `npu-smi info` 命令，显示出来的信息如下：
+
+![image-20250330154832390](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250330154832390.png)
+
+设置算力切分模式：
+
+```bash
+npu-smi set -t vnpu-mode -d 0
+```
+
+之后使用如下命令查询支持的切分模式：
+
+```bash
+npu-smi info -t template-info
+```
+
+但是这个命令返回：
+
+```bash
+This device does not support querying template-info.
+```
+
+OK 死心了，我这个设备确实不支持算力切分：[Atlas A2 智能边缘硬件 24.1.0 npu-smi 命令参考 01](https://support.huawei.com/enterprise/zh/doc/EDOC1100438698/7a5fc1e2?idPath=23710424|251366513|22892968|252309141|254411267)。
+
+![image-20250330160748448](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250330160748448.png)
 
 
 
 
-
-
-如果我想要运行这个模型，那么我就需要：
-
-- `coco_names.txt`
-- `det_utils.py`
-- `main.py`
-- `racing.mp4`
-- `yolo.om`
 
 
 

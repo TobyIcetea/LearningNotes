@@ -13,5 +13,44 @@
 
 在 PyCharm 中创建项目时，可以选择是否生成 `.venv` 目录，如果启用了，它就会作为当前项目的虚拟环境，方便自动管理和运行。
 
+## 2. 如何导出已有 Python 项目的 requirements 文件
+
+### 创建虚拟环境并激活
+
+```bash
+python -m venv venv
+source venv/bin/activate
+
+# 如果要退出
+deativate
+```
+
+导出项目实际使用的包：
+
+```bash
+# 安装工具
+pip install pipreqs
+# 生成 requirements 文件
+pipreqs /path/to/your_project --encoding=utf-8 --force
+```
+
+其中，`--encoding=utf-8` 是为了避免编码问题，`--force` 是为了覆盖已有的 `requirements.txt`。
+
+之后在进行环境准备的时候，可以使用命令：
+
+```bash
+pip install -r requirements.txt
+```
+
+### 虚拟环境的本质
+
+在激活虚拟环境前后，我发现 `echo $PATH` 就是虚拟环境会在这个环境变量开头加上一个新的 `/root/workdir/01-yolov5/venv/bin:`（01-yolov5 是我的工作目录）。
+
+所以虚拟环境的本质就是临时修改了 `PATH` 变量，这样的话，之后在终端输入命令（如 pip、python）等命令的时候，系统会优先使用虚拟环境中的二进制文件，而不是全局安装的版本。
+
+
+
+
+
 
 

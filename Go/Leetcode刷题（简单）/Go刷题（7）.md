@@ -915,42 +915,329 @@ func sortArrayByParity(nums []int) []int {
 }
 ```
 
+## 203. 最小差值I（908）
 
+给你一个整数数组 `nums`，和一个整数 `k` 。
 
+在一个操作中，您可以选择 `0 <= i < nums.length` 的任何索引 `i` 。将 `nums[i]` 改为 `nums[i] + x` ，其中 `x` 是一个范围为 `[-k, k]` 的任意整数。对于每个索引 `i` ，最多 **只能** 应用 **一次** 此操作。
 
+`nums` 的 **分数** 是 `nums` 中最大和最小元素的差值。 
 
+*在对 `nums` 中的每个索引最多应用一次上述操作后，返回 `nums` 的最低 **分数*** 。
 
+```go
+import "math"
 
+func smallestRangeI(nums []int, k int) int {
+    maxValue := math.MinInt
+    minValue := math.MaxInt
 
+    for _, num := range nums {
+        minValue = min(minValue, num)
+        maxValue = max(maxValue, num)
+    }
 
-待做题目：
-
-```markdown
-908. 最小差值 I
-726
-76.8%
-简单
-914. 卡牌分组
-798
-37.1%
-简单
-917. 仅仅反转字母
-1175
-59.3%
-简单
-922. 按奇偶排序数组 II
-1278
-72.5%
-简单
-925. 长按键入
-903
-37.3%
-简单
-929. 独特的电子邮件地址
-582
-68.5%
-简单
+    diff := (maxValue - minValue) - 2 * k
+    return max(diff, 0)
+}
 ```
+
+## 204. 卡牌分组（914）
+
+给定一副牌，每张牌上都写着一个整数。
+
+此时，你需要选定一个数字 `X`，使我们可以将整副牌按下述规则分成 1 组或更多组：
+
+- 每组都有 `X` 张牌。
+- 组内所有的牌上都写着相同的整数。
+
+仅当你可选的 `X >= 2` 时返回 `true`。
+
+```go
+func hasGroupsSizeX(deck []int) bool {
+    counts := make(map[int]int)
+    for _, num := range deck {
+        counts[num]++
+    }
+
+    n := len(deck)
+Outer:
+    for i := 2; i <= n; i++ {
+        if n % i != 0 {
+            continue
+        }
+        for _, count := range counts {
+            if count % i != 0 {
+                continue Outer
+            }
+        }
+        return true
+    }
+
+    return false
+}
+```
+
+## 205. 仅仅反转字母（917）
+
+给你一个字符串 `s` ，根据下述规则反转字符串：
+
+- 所有非英文字母保留在原有位置。
+- 所有英文字母（小写或大写）位置反转。
+
+返回反转后的 `s` *。*
+
+```go
+import "unicode"
+
+func reverseOnlyLetters(s string) string {
+    i := 0
+    j := len(s) - 1
+
+    bytes := []byte(s)
+
+    for i < j {
+        for i < j && !unicode.IsLetter(rune(s[i])) {
+            i++
+        }
+        for i < j && !unicode.IsLetter(rune(s[j])) {
+            j--
+        }
+        if i < j {
+            bytes[i], bytes[j] = bytes[j], bytes[i]
+            i++
+            j--
+        }
+    }
+
+    return string(bytes)
+}
+```
+
+## 206. 按奇偶排序数组II（922）
+
+给定一个非负整数数组 `nums`， `nums` 中一半整数是 **奇数** ，一半整数是 **偶数** 。
+
+对数组进行排序，以便当 `nums[i]` 为奇数时，`i` 也是 **奇数** ；当 `nums[i]` 为偶数时， `i` 也是 **偶数** 。
+
+你可以返回 *任何满足上述条件的数组作为答案* 。
+
+```go
+func sortArrayByParityII(nums []int) []int {
+    oddIndex := 0  // 奇数开始搜索的下标，在此之前不存在任何奇数
+    evenIndex := 0  // 偶数开始搜索的下标
+
+    for i := range nums {
+        if i & 1 == 0 {
+            // 偶数
+            if nums[i] & 1 == 0 {
+                continue
+            }
+            
+            evenIndex = max(evenIndex, i)
+            for nums[evenIndex] & 1 == 1 {
+                evenIndex++
+            }
+            nums[i], nums[evenIndex] = nums[evenIndex], nums[i]
+
+        } else {
+            // 奇数
+            if nums[i] & 1 == 1 {
+                continue
+            }
+            
+            oddIndex = max(oddIndex, i)
+            for nums[oddIndex] & 1 == 0 {
+                oddIndex++
+            }
+            nums[i], nums[oddIndex] = nums[oddIndex], nums[i]
+        }
+    }
+
+    return nums
+}
+```
+
+## 207. 长按键入（925）
+
+你的朋友正在使用键盘输入他的名字 `name`。偶尔，在键入字符 `c` 时，按键可能会被*长按*，而字符可能被输入 1 次或多次。
+
+你将会检查键盘输入的字符 `typed`。如果它对应的可能是你的朋友的名字（其中一些字符可能被长按），那么就返回 `True`。
+
+```go
+func isLongPressedName(name string, typed string) bool {
+    // name 中每个连字符出现的次数 >= typed 中出现的次数
+    i := 0
+    j := 0
+    for i < len(name) {
+        c := name[i]
+        countOfChar := 1
+        i++
+        for i < len(name) && name[i] == c {
+            i++
+            countOfChar++
+        }
+        // 此时表明在 name 中出现了 countOfChar 个 c
+        
+        for j < len(typed) && typed[j] == c {
+            j++
+            countOfChar--    
+        }
+
+        if countOfChar > 0 {
+            return false
+        }
+    }
+
+    return j == len(typed)
+}
+```
+
+## 208. 独特的电子邮件地址（929）
+
+每个 **有效电子邮件地址** 都由一个 **本地名** 和一个 **域名** 组成，以 `'@'` 符号分隔。除小写字母之外，电子邮件地址还可以含有一个或多个 `'.'` 或 `'+'` 。
+
+- 例如，在 `alice@leetcode.com`中， `alice` 是 **本地名** ，而 `leetcode.com` 是 **域名** 。
+
+如果在电子邮件地址的 **本地名** 部分中的某些字符之间添加句点（`'.'`），则发往那里的邮件将会转发到本地名中没有点的同一地址。请注意，此规则 **不适用于域名** 。
+
+- 例如，`"alice.z@leetcode.com”` 和 `“alicez@leetcode.com”` 会转发到同一电子邮件地址。
+
+如果在 **本地名** 中添加加号（`'+'`），则会忽略第一个加号后面的所有内容。这允许过滤某些电子邮件。同样，此规则 **不适用于域名** 。
+
+- 例如 `m.y+name@email.com` 将转发到 `my@email.com`。
+
+可以同时使用这两个规则。
+
+给你一个字符串数组 `emails`，我们会向每个 `emails[i]` 发送一封电子邮件。返回实际收到邮件的不同地址数目。
+
+```go
+import "strings"
+
+func numUniqueEmails(emails []string) int {
+    emailSet := make(map[string]struct{})
+    for _, email := range emails {
+        var builder strings.Builder
+        var index int
+        for i, r := range email {
+            if r == '.' {
+                continue
+            } else if r == '+' || r == '@' {
+                index = i
+                break
+            } else {
+                builder.WriteRune(r)
+            }
+        }
+
+        // 一直往后找，直到找到 @
+        flag := byte('@')
+        for email[index] != flag {
+            index++
+        }
+
+        builder.WriteString(email[index:])
+        emailSet[builder.String()] = struct{}{}
+    }
+
+    return len(emailSet)
+}
+```
+
+## 209. 最近的请求次数（933）
+
+写一个 `RecentCounter` 类来计算特定时间范围内最近的请求。
+
+请你实现 `RecentCounter` 类：
+
+- `RecentCounter()` 初始化计数器，请求数为 0 。
+- `int ping(int t)` 在时间 `t` 添加一个新请求，其中 `t` 表示以毫秒为单位的某个时间，并返回过去 `3000` 毫秒内发生的所有请求数（包括新请求）。确切地说，返回在 `[t-3000, t]` 内发生的请求数。
+
+**保证** 每次对 `ping` 的调用都使用比之前更大的 `t` 值。
+
+```go
+type RecentCounter struct {
+    // 把所有的 ping 请求都存起来
+    arr []int
+}
+
+
+func Constructor() RecentCounter {
+    return RecentCounter{
+        arr: make([]int, 0),
+    }
+}
+
+
+func (this *RecentCounter) Ping(t int) int {
+    this.arr = append(this.arr, t)
+    // 寻找第一个大于等于 t-3000 的数字
+    left := 0
+    right := len(this.arr) - 1
+    target := t - 3000
+    for left <= right {
+        mid := left + (right - left) / 2
+        if this.arr[mid] >= target {
+            right = mid - 1
+        } else {
+            left = mid + 1
+        }
+    }
+    // 此时 left 是第一个符合要求的
+    this.arr = this.arr[left:]
+    
+    return len(this.arr)
+}
+```
+
+## 210. 二叉搜索树的范围和（938）
+
+给定二叉搜索树的根结点 `root`，返回值位于范围 *`[low, high]`* 之间的所有结点的值的和。
+
+```go
+func rangeSumBST(root *TreeNode, low int, high int) int {
+    res := 0
+
+    var inorder func(root *TreeNode)
+    inorder = func(root *TreeNode) {
+        if root == nil {
+            return
+        }
+        
+        if root.Val > low {
+            inorder(root.Left)
+        }
+        
+        if root.Val >= low && root.Val <= high {
+            res += root.Val
+        }
+
+        if root.Val < high {
+            inorder(root.Right)
+        }
+    }
+
+    inorder(root)
+
+    return res
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

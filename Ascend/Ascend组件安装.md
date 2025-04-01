@@ -1,4 +1,4 @@
-# CANN
+# Ascend 组件安装
 
 初始安装的 OpenEuler 操作系统，在 `/usr/local/Ascend` 目录下有如下几个文件夹：
 
@@ -13,7 +13,7 @@ drwxr-xr-x 3 root       root       4096 Aug 11  2023 thirdpart
 
 也就是说 Atlas 200DK A2 内置的 Ascend 资源有：ascend-toolkit、driver。
 
-## 1. 安装部署
+## 1. CANN
 
 安装部署文档位置：
 
@@ -210,7 +210,7 @@ vim run.sh  # 如何去运行推理软件的 shell 脚本
 之后就可以构建 Dockerfile：
 
 ```dockerfile
-FROM python:3.9.21
+FROM python:3.9.2
 
 USER root
 
@@ -275,26 +275,9 @@ COPY --chown=HwHiAiUser:HwHiAiUser run.sh /home/AscendWork/run.sh
 RUN chmod 640 /etc/slog.conf && \
     chmod +x /home/AscendWork/run.sh
 
-# 若用户不需要使用AICPU算子，则请用户将如下指令添加注释“#”
-# RUN cp /usr/local/Ascend/nnrt/latest/opp/Ascend/aicpu/Ascend-aicpu_syskernels.tar.gz /home/HwHiAiUser/ && \
-    # rm -rf /usr/local/Ascend/nnrt/latest/opp/Ascend/aicpu/Ascend-aicpu_syskernels.tar.gz && \
-    # echo $(wc -c /home/HwHiAiUser/Ascend-aicpu_syskernels.tar.gz|awk ' {print$1} ') > /home/HwHiAiUser/aicpu_package_install.info && \
-    # tail -c +8449 /home/HwHiAiUser/Ascend-aicpu_syskernels.tar.gz > /home/HwHiAiUser/aicpu.tar.gz && \
-    # rm -rf /home/HwHiAiUser/Ascend-aicpu_syskernels.tar.gz && \
-    # chown HwHiAiUser:HwHiAiUser /home/HwHiAiUser/aicpu.tar.gz && \
-    # mkdir -p /home/HwHiAiUser/aicpu_kernels
-# RUN tar -xvf /home/HwHiAiUser/aicpu.tar.gz -C /home/HwHiAiUser/ 2>/dev/null;exit 0
-# RUN rm -rf /home/HwHiAiUser/aicpu.tar.gz && \
-    # mv /home/HwHiAiUser/aicpu_kernels_device/* /home/HwHiAiUser/aicpu_kernels/ && \
-    # chown -R HwHiAiUser:HwHiAiUser /home/HwHiAiUser/
-
-# 若用户不需要使用AICPU算子，请将如下指令的注释“#”删除
-#RUN rm -rf /usr/local/Ascend/nnrt/latest/opp/Ascend/aicpu/Ascend-aicpu_syskernels.tar.gz && \
-#    chown -R HwHiAiUser:HwHiAiUser /home/HwHiAiUser/
-
 USER 1000
 
-RUN /usr/local/Ascend/nnrt/set_env.sh && chmod 755 yolo.om
+RUN . /usr/local/Ascend/nnrt/set_env.sh && chmod 755 yolo.om
 
 CMD bash /home/AscendWork/run.sh
 ```
@@ -480,6 +463,8 @@ docker exec -it <CONTAINER ID> /bin/bash
 
 ## 2. 安装 NPU 驱动和固件
 
+（Atlas 200 DK A2 不用做，因为初始安装的操作系统都已经做好了）
+
 安装所需依赖：
 
 ```bash
@@ -506,6 +491,71 @@ chmod +x Ascend-hdk-310b-npu-firmware-soc_6.2.t2.0.b133.run
 ```bash
 ./Ascend-hdk-310b-npu-firmware-soc_6.2.t2.0.b133.run --full
 ```
+
+## 3. 容器中需要挂载的部分
+
+### 驱动
+
+驱动是存在于操作系统层的，提供硬件资源管理接口（如设备查询、内存分配），是容器内应用与昇腾硬件交互的桥梁。容器需要通过挂载驱动目录访问驱动提供的接口（如 `npu-smi` 工具、设备文件 `/dev/davinci*` 等），否则无法识别 NPU 设备。所以我们的容器启动命令中需要加上一句：
+
+```bash
+-v /usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64:ro
+```
+
+### 固件
+
+固件（firmware）是直接烧录在昇腾硬件（如 NPU 芯片）中的，负责处理器启动控制、电源管理、硬件功能调度等底层操作。例如，昇腾 310 的固件包含 3D Cube 架构的优化指令集，直接影响硬件性能。
+
+固件已经固化在开发板硬件中，其功能不依赖容器内的软件环境。即使容器内未安装固件，硬件仍能正常运行。
+
+### NNRT
+
+NNRT 是昇腾推理任务的核心软件栈，主要提供以下能力：
+
+- 硬件抽象层：封装昇腾 NPU 的底层驱动接口（如 AscendCL），向上提供统一的推理 API（如模型加载、输入/输出管理）。
+- 计算图优化：对预编译的 OM 模型（昇腾专用格式）进行算子融合、内存优化等加速处理。
+- 资源管理：管理 NPU 的计算核心、内存等资源，支持多模型并行推理。
+- 跨平台兼容性：屏蔽不同昇腾硬件（如 310P vs 910B）的差异，确保同一 OM 模型在不同设备上均可运行。
+
+官方提供的推理基础镜像就是 driver 和 NNRT 的组合。相比于 ascend-toolkit 来说，NNRT 仅保留了推理所需的组件，减少了容器的体积。因此在构建镜像的时候，容器中是需要存在 NNRT 的。
+
+### ascend-toolkit
+
+ascend-toolkit 是昇腾 CANN 工具链的核心组成部分，包含模型转换工具（如 ATC）、算子开发库、编译工具链等。例如：
+
+- ATC 工具：用于将训练框架导出的模型（如 AIR、ONNX）转换为昇腾硬件支持的 OM 格式。
+- 算子开发接口：支持自定义算子开发时所需的头文件和库。
+- 运行时依赖：部分推理框架（如 MindSpore）的推理接口依赖该目录中的动态库。
+
+一句话总结：ascend-toolkit 是一个功能很全的工具包。
+
+与此同时，体积也是特别大的。这个工具的 .run 安装包的大小是 1.6GB 左右，`/usr/local/Ascend/ascend-toolkit/` 文件夹的体积是 4.7GB 左右。所以在我们边缘端主打轻量的场景中，一般是不会安装 ascend-toolkit 的。
+
+因此，对 ascend-toolkit 和 NNRT 之间的关系总结如下：
+
+- ascend-toolkit：是昇腾 CANN 生态的全功能开发套件，包含模型训练、推理、转换工具（如 ATC）、算力开发库、调试工具等，适用于开发阶段的完整场景。
+- NNRT（Neural Network Runtime）：是 ascend-toolkit 的推理专用精简版本，仅保留离线推理所需的运行时组件（如 AscendCL、GE、Runtime 库），剥离了训练和开发工具，体积更小。
+- 可以将 NNRT 理解为 ascend-toolkit 的推理精简版。NNRT 是推理场景的标准运行时，而 ascend-toolkit 适用于开发场景。
+
+### cann-kernels
+
+提供昇腾硬件底层算子的内核实现，包括神经网络基础算子（如卷积、矩阵乘法）、融合算子（如大预言模型中的注意力机制优化）以及硬件亲和的内存管理接口。这些算子是昇腾 NPU 执行计算任务的基础。
+
+无论是训练还是推理，只要涉及昇腾硬件加速，均需安装此组件。例如，使用昇腾 910 进行大模型训练时，需依赖其提供的底层算子。
+
+### cann-nnae
+
+nnae（Neural Network Acceleration Engine）是昇腾的深度学习训练引擎，支持分布式训练、混合精度计算以及昇腾硬件加速。与 cann-toolkit 的区别在于，nnae 更专注于训练场景的优化。
+
+### cann-aie
+
+aie（Ascend Inference Engine）是专为推理场景设计的轻量级运行时引擎，提供模型加载、执行调度和资源管理功能。与 NNRT（Neural Network Runtime）类似，但 aie 可能为更高层的抽象接口？
+
+### cann-atb
+
+atb（Ascend Tensor Boost）是高性能张量加速库，针对大模型计算（如 Transformer 架构）提供算子融合、内存复用等优化。例如，将 Attention 机制中的多个算子融合为单一高效算子。
+
+
 
 
 

@@ -62,7 +62,7 @@ systemctl enable --now docker
 一般情况下的设置命令：
 
 ```bash
-mkdir /etc/docker
+mkdir -p /etc/docker
 cat <<EOF >  /etc/docker/daemon.json
 {
   "registry-mirrors": [ 
@@ -76,7 +76,7 @@ EOF
 如果是在 Kubernetes 中使用 Docker 作为容器运行时，就要多加上一个设置：
 
 ```bash
-mkdir /etc/docker
+mkdir -p /etc/docker
 cat <<EOF >  /etc/docker/daemon.json
 {
   "exec-opts": ["native.cgroupdriver=systemd"],

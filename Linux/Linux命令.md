@@ -22,8 +22,9 @@ set cursorline
 set wrap
 " 垂直滚动时，光标距离顶部 / 底部的位置（单位：行）
 set scrolloff=5
+set 
 " 是否显示状态栏。0 表示不显示，1 表示只在多窗口时显示，2 表示显示。
-set laststatus=2
+set laststatus=1
 " 设置缩进为 4 个空格
 set tabstop=4        " 设置 Tab 键等于 4 个空格
 set shiftwidth=4     " 设置自动缩进时的空格数
@@ -284,7 +285,101 @@ echo "U2FsdGVkX1+zwbaMU9/Va7zD7XGJATT0WZ7e2cbGPpI=" | openssl enc -d -aes-256-cb
 Hello world
 ```
 
+## 8. 根据安装目录删除文件
 
+在安装 containerd 的时候，安装包是根据以 root 为根进行安装的。解压的过程中通过过程可视化，看到安装的所有文件、目录有：
+
+```bash
+cri-containerd.DEPRECATED.txt
+etc/
+etc/cni/
+etc/cni/net.d/
+etc/cni/net.d/10-containerd-net.conflist
+etc/systemd/
+etc/systemd/system/
+etc/systemd/system/containerd.service
+etc/crictl.yaml
+usr/
+usr/local/
+...
+```
+
+这样会导致之后删除的时候很麻烦，总不能将这些位置的文件一个一个对照，再一个一个删除。
+
+之后再进行这样的操作的时候，可以使用如下的脚本：
+
+```bash
+#!/bin/bash
+
+# 检查参数
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <root-directory> <install.list>"
+    echo "Example: $0 /path/to/root install.list"
+    echo "Example: $0 / install.list (for system root)"
+    exit 1
+fi
+
+root_dir="$1"
+list_file="$2"
+
+# 特殊处理根目录情况
+if [ "$root_dir" = "/" ]; then
+    root_dir=""
+fi
+
+# 检查根目录是否存在（如果是系统根目录则跳过检查）
+if [ -n "$root_dir" ] && [ ! -d "$root_dir" ]; then
+    echo "Error: Root directory '$root_dir' not found."
+    exit 1
+fi
+
+# 检查清单文件是否存在
+if [ ! -f "$list_file" ]; then
+    echo "Error: List file '$list_file' not found."
+    exit 1
+fi
+
+# 从文件底部开始处理，先处理文件再处理目录
+tac "$list_file" | while read -r path; do
+    # 去除可能的尾随斜杠（用于目录）
+    clean_path="${path%/}"
+
+    # 构建完整路径
+    if [ -z "$root_dir" ]; then
+        full_path="/${clean_path}"
+    else
+        full_path="${root_dir}/${clean_path}"
+    fi
+
+    if [ -e "$full_path" ]; then
+        if [ -f "$full_path" ]; then
+            echo "Removing file: $full_path"
+            rm -f "$full_path"
+        elif [ -d "$full_path" ]; then
+            # 检查目录是否为空
+            if [ -z "$(ls -A "$full_path")" ]; then
+                echo "Removing empty directory: $full_path"
+                rmdir "$full_path"
+            else
+                echo "Directory not empty, skipping: $full_path"
+            fi
+        fi
+    else
+        echo "Path does not exist, skipping: $full_path"
+    fi
+done
+
+echo "Cleanup completed under root: ${root_dir:-/}"
+
+```
+
+将上述脚本保存为 `clean.sh`，并且将安装的所有文件的列表保存为 `install.list`，之后可以执行脚本：
+
+```bash
+./clean.sh / install.sh
+```
+
+就可以将安装的这些文件、目录都删除啦。
 
 
 
