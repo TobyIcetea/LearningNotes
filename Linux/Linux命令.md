@@ -22,9 +22,8 @@ set cursorline
 set wrap
 " 垂直滚动时，光标距离顶部 / 底部的位置（单位：行）
 set scrolloff=5
-set 
 " 是否显示状态栏。0 表示不显示，1 表示只在多窗口时显示，2 表示显示。
-set laststatus=1
+set laststatus=2
 " 设置缩进为 4 个空格
 set tabstop=4        " 设置 Tab 键等于 4 个空格
 set shiftwidth=4     " 设置自动缩进时的空格数

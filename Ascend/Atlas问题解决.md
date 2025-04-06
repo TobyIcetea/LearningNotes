@@ -570,33 +570,10 @@ cfg = {
 
 model_path = 'yolo.om'
 label_path = './coco_names.txt'
+
 # 初始化推理模型
 model = InferSession(0, model_path)
 labels_dict = get_labels_from_txt(label_path)
-
-infer_mode = 'video'
-
-if infer_mode == 'image':
-    img_path = 'world_cup.jpg'
-    infer_image(img_path, model, labels_dict, cfg)
-elif infer_mode == 'camera':
-    infer_camera(model, labels_dict, cfg)
-elif infer_mode == 'video':
-    video_path = 'racing.mp4'
-    infer_video(video_path, model, labels_dict, cfg)
-
-cfg = {
-    'conf_thres': 0.4,  # 模型置信度阈值，阈值越低，得到的预测框越多
-    'iou_thres': 0.5,  # IOU阈值，高于这个阈值的重叠预测框会被过滤掉
-    'input_shape': [640, 640],  # 模型输入尺寸
-}
-
-model_path = 'yolo.om'
-label_path = './coco_names.txt'
-# 初始化推理模型
-model = InferSession(0, model_path)
-labels_dict = get_labels_from_txt(label_path)
-
 
 infer_mode = 'video'
 
