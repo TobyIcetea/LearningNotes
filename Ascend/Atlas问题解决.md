@@ -959,6 +959,707 @@ OK 死心了，我这个设备确实不支持算力切分：[Atlas A2 智能边�
 
 ![image-20250330160748448](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250330160748448.png)
 
+## 11. 通过 Pod 部署 Yolo 模型
+
+### 第一版 ascend-infer.yaml
+
+这一版实现的功能是，通过 apply 这个声明式文件，然后再通过 exec 命令进入容器中，然后在容器中再去执行 `python3 main.py` 去启动推理任务。
+
+这一版的缺点是，打包镜像的时候，需要推理的视频文件是和镜像文件绑定在一起的，只能推理这个视频文件，其他的都做不了。而且，执行命令的时候不能自动化，只能通过 exec 进入容器中手动执行。
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ascend-infer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ascend-infer
+  template:
+    metadata:
+      labels:
+        app: ascend-infer
+    spec:
+      nodeName: atlas  # 指定在 atlas 节点上运行
+      hostNetwork: true  # 相当于 --netrwork host
+      hostPID: true  # 相当于 --pid=host
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+      - name: ascend-infer
+        image: ascend-infer:0329
+        imagePullPolicy: Never
+        command: ["/bin/bash", "-c", "sleep infinity"]  # 让容器无限休眠
+        securityContext:
+          privileged: true  # 可能需要特权模式来访问设备
+        volumeMounts:
+        - name: sys-version
+          mountPath: /etc/sys_version.conf
+          readOnly: true
+        - name: hdc-basic
+          mountPath: /etc/hdcBasic.cfg
+          readOnly: true
+        - name: libaicpu-processer
+          mountPath: /usr/lib64/libaicpu_processer.so
+          readOnly: true
+        - name: libaicpu-prof
+          mountPath: /usr/lib64/libaicpu_prof.so
+          readOnly: true
+        - name: libaicpu-sharder
+          mountPath: /usr/lib64/libaicpu_sharder.so
+          readOnly: true
+        - name: libadump
+          mountPath: /usr/lib64/libadump.so
+          readOnly: true
+        - name: libtsd-eventclient
+          mountPath: /usr/lib64/libtsd_eventclient.so
+          readOnly: true
+        - name: libaicpu-scheduler
+          mountPath: /usr/lib64/libaicpu_scheduler.so
+          readOnly: true
+        - name: libcrypto
+          mountPath: /usr/lib64/libcrypto.so.1.1
+          readOnly: true
+        - name: libyaml
+          mountPath: /usr/lib64/libyaml-0.so.2
+          readOnly: true
+        - name: libdcmi
+          mountPath: /usr/lib64/libdcmi.so
+          readOnly: true
+        - name: libmpi-dvpp-adapter
+          mountPath: /usr/lib64/libmpi_dvpp_adapter.so
+          readOnly: true
+        - name: aicpu-kernels
+          mountPath: /usr/lib64/aicpu_kernels/
+          readOnly: true
+        - name: npu-smi
+          mountPath: /usr/local/sbin/npu-smi
+          readOnly: true
+        - name: libstackcore
+          mountPath: /usr/lib64/libstackcore.so
+          readOnly: true
+        - name: libunified-timer
+          mountPath: /usr/lib64/libunified_timer.so
+        - name: libdp
+          mountPath: /usr/lib64/libdp.so
+        - name: libtensorflow
+          mountPath: /usr/lib64/libtensorflow.so
+        - name: ascend-driver-lib64
+          mountPath: /usr/local/Ascend/driver/lib64
+          readOnly: true
+        - name: slogd
+          mountPath: /var/slogd
+          readOnly: true
+        - name: dmp-daemon
+          mountPath: /var/dmp_daemon
+          readOnly: true
+# 从这里分开挂载-----------------------------------
+        - name: upgrade
+          mountPath: /dev/upgrade
+        - name: davinci0
+          mountPath: /dev/devinci0
+        - name: davinci-manager
+          mountPath: /dev/davinci_manager
+        - name: vdec
+          mountPath: /dev/vdec
+        - name: vpc
+          mountPath: /dev/vpc
+        - name: pngd
+          mountPath: /dev/pngd
+        - name: venc
+          mountPath: /dev/venc
+        - name: sys
+          mountPath: /dev/sys
+        - name: svm0
+          mountPath: /dev/svm0
+        - name: acodec
+          mountPath: /dev/acodec
+        - name: ai
+          mountPath: /dev/ai
+        - name: ao
+          mountPath: /dev/ao
+        - name: hdmi
+          mountPath: /dev/hdmi
+        - name: ts-aisle
+          mountPath: /dev/ts_aisle
+        - name: dvpp-cmdlist
+          mountPath: /dev/dvpp_cmdlist
+      volumes:
+      - name: sys-version
+        hostPath:
+          path: /etc/sys_version.conf
+          type: File  # 明确指定为文件类型
+      - name: hdc-basic
+        hostPath:
+          path: /etc/hdcBasic.cfg
+          type: File
+      - name: libaicpu-processer
+        hostPath:
+          path: /usr/lib64/libaicpu_processer.so
+          type: File
+      - name: libaicpu-prof
+        hostPath:
+          path: /usr/lib64/libaicpu_prof.so
+          type: File
+      - name: libaicpu-sharder
+        hostPath:
+          path: /usr/lib64/libaicpu_sharder.so
+          type: File
+      - name: libadump
+        hostPath:
+          path: /usr/lib64/libadump.so
+          type: File
+      - name: libtsd-eventclient
+        hostPath:
+          path: /usr/lib64/libtsd_eventclient.so
+          type: File
+      - name: libaicpu-scheduler
+        hostPath:
+          path: /usr/lib64/libaicpu_scheduler.so
+          type: File
+      - name: libcrypto
+        hostPath:
+          path: /usr/lib/aarch64-linux-gnu/libcrypto.so.1.1
+          type: File
+      - name: libyaml
+        hostPath:
+          path: /usr/lib/aarch64-linux-gnu/libyaml-0.so.2.0.6
+          type: File
+      - name: libdcmi
+        hostPath:
+          path: /usr/lib64/libdcmi.so
+          type: File
+      - name: libmpi-dvpp-adapter
+        hostPath:
+          path: /usr/lib64/libmpi_dvpp_adapter.so
+          type: File
+      - name: aicpu-kernels
+        hostPath:
+          path: /usr/lib64/aicpu_kernels/
+          type: Directory  # 指定为目录类型
+      - name: npu-smi
+        hostPath:
+          path: /usr/local/sbin/npu-smi
+          type: File
+      - name: libstackcore
+        hostPath:
+          path: /usr/lib64/libstackcore.so
+          type: File
+      - name: libunified-timer
+        hostPath:
+          path: /usr/lib64/libunified_timer.so
+          type: Directory
+      - name: libdp
+        hostPath:
+          path: /usr/lib64/libdp.so
+          type: File
+      - name: libtensorflow
+        hostPath:
+          path: /usr/lib64/libtensorflow.so
+          type: File
+      - name: ascend-driver-lib64
+        hostPath:
+          path: /usr/local/Ascend/driver/lib64
+          type: Directory
+      - name: slogd
+        hostPath:
+          path: /var/slogd
+          type: File
+      - name: dmp-daemon
+        hostPath:
+          path: /var/dmp_daemon
+          type: File
+# 从这里分开挂载--------------------------
+      - name: upgrade
+        hostPath:
+          path: /dev/upgrade
+          type: CharDevice  # 指定为字符设备
+      - name: davinci0
+        hostPath:
+          path: /dev/davinci0
+          type: CharDevice
+      - name: davinci-manager
+        hostPath:
+          path: /dev/davinci_manager_docker  # 注意源路径不同
+          type: CharDevice
+      - name: vdec
+        hostPath:
+          path: /dev/vdec
+          type: CharDevice
+      - name: vpc
+        hostPath:
+          path: /dev/vpc
+          type: CharDevice
+      - name: pngd
+        hostPath:
+          path: /dev/pngd
+          type: CharDevice
+      - name: venc
+        hostPath:
+          path: /dev/venc
+          type: CharDevice
+      - name: sys
+        hostPath:
+          path: /dev/sys
+          type: CharDevice
+      - name: svm0
+        hostPath:
+          path: /dev/svm0
+          type: CharDevice
+      - name: acodec
+        hostPath:
+          path: /dev/acodec
+          type: CharDevice
+      - name: ai
+        hostPath:
+          path: /dev/ai
+          type: CharDevice
+      - name: ao
+        hostPath:
+          path: /dev/ao
+          type: CharDevice
+      - name: hdmi
+        hostPath:
+          path: /dev/hdmi
+          type: CharDevice
+      - name: ts-aisle
+        hostPath:
+          path: /dev/ts_aisle
+          type: CharDevice
+      - name: dvpp-cmdlist
+        hostPath:
+          path: /dev/dvpp_cmdlist
+          type: CharDevice
+```
+
+### 第二版 ascend-infer.yaml
+
+基本的想法是，通过 master 节点进行任务的切分，之后分节点进行任务的处理，最后再返回到 master 节点进行合并。
+
+#### split_video
+
+```python
+import argparse
+import os
+import cv2
+
+def split_video(input_path, output_dir, ratios):
+    """
+    将视频按比例分割成多个部分
+
+    参数:
+        input_path: 输入视频路径
+        output_dir: 输出目录
+        ratios: 分割比例列表（如 [0.3, 0.3, 0.4]）
+    """
+    # 验证比例总和为1
+    if abs(sum(ratios) - 1.0) > 0.001:
+        raise ValueError("比例之和必须等于1")
+
+    # 打开视频文件
+    cap = cv2.VideoCapture(input_path)
+    if not cap.isOpened():
+        raise IOError(f"无法打开视频文件: {input_path}")
+
+    # 获取视频信息
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    codec = cv2.VideoWriter_fourcc(*'mp4v')
+
+    # 计算分割点
+    split_points = []
+    accumulated = 0.0
+    for ratio in ratios[:-1]:  # 最后一个分割点不需要计算
+        accumulated += ratio
+        split_points.append(int(total_frames * accumulated))
+
+    # 准备输出文件名
+    input_filename = os.path.basename(input_path)
+    filename_without_ext = os.path.splitext(input_filename)[0]
+    outputs = [os.path.join(output_dir, f"{filename_without_ext}_{i+1}.mp4")
+              for i in range(len(ratios))]
+
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 创建视频写入器
+    writers = [cv2.VideoWriter(output, codec, fps, (width, height)) for output in outputs]
+
+    # 读取并写入帧
+    current_writer_idx = 0
+    next_split = split_points[current_writer_idx] if split_points else total_frames
+
+    for frame_count in range(total_frames):
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        writers[current_writer_idx].write(frame)
+
+        # 检查是否需要切换到下一个写入器
+        if frame_count + 1 == next_split and current_writer_idx < len(writers) - 1:
+            current_writer_idx += 1
+            next_split = split_points[current_writer_idx] if current_writer_idx < len(split_points) else total_frames
+
+    # 释放资源
+    cap.release()
+    for writer in writers:
+        writer.release()
+
+    print("视频已分割为:")
+    for output in outputs:
+        print(f"  {output}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="将视频按比例分割成多个部分")
+    parser.add_argument("--input", required=True, help="输入视频文件路径")
+    parser.add_argument("--output", required=True,
+                       help="输出目录路径")
+    parser.add_argument("--ratios", type=float, nargs='+', required=True,
+                       help="分割比例列表（如 0.3 0.3 0.4）")
+
+    args = parser.parse_args()
+
+    try:
+        split_video(args.input, args.output, args.ratios)
+    except Exception as e:
+        print(f"错误: {e}")
+
+```
+
+操作方式：
+
+```bash
+python3 ./split-video.py --input full-videos/racing.mp4 --output ./segments/ --ratios 0.8 0.2
+```
+
+之后就可以在 `--output` 目录下生成两个文件：`racing_1.mp4` 和 `racing_2.mp4`。
+
+#### merge_video
+
+```python
+import argparse
+import os
+import glob
+import cv2
+import sys
+
+def merge_videos(input_pattern, output_dir):
+    """
+    合并多个视频片段为一个完整视频
+
+    参数:
+        input_pattern: 输入视频的通配符模式（如 "racing_*.mp4"）
+        output_dir: 合并后的输出目录
+    """
+    # 如果传入的是多个文件（shell已经展开通配符），则直接使用这些文件
+    if isinstance(input_pattern, list):
+        input_files = sorted(input_pattern)
+    else:
+        input_files = sorted(glob.glob(input_pattern))
+
+    if not input_files:
+        raise ValueError(f"没有找到匹配的视频文件")
+
+    print(f"找到 {len(input_files)} 个视频片段:")
+    for f in input_files:
+        print(f"  {f}")
+
+    # 从输入文件名中提取基础文件名
+    first_file = input_files[0]
+    base_name = os.path.basename(first_file)
+    if '_' in base_name:
+        base_name = base_name.split('_')[0] + '.mp4'
+    else:
+        base_name = 'merged_' + base_name
+    
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, base_name)
+
+    # 读取第一个视频获取参数
+    sample = cv2.VideoCapture(first_file)
+    fps = sample.get(cv2.CAP_PROP_FPS)
+    width = int(sample.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(sample.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    codec = cv2.VideoWriter_fourcc(*'mp4v')
+    sample.release()
+
+    # 创建输出视频写入器
+    out = cv2.VideoWriter(output_path, codec, fps, (width, height))
+
+    # 逐个读取并写入视频片段
+    for input_file in input_files:
+        print(f"正在处理: {input_file}")
+        cap = cv2.VideoCapture(input_file)
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            out.write(frame)
+
+        cap.release()
+
+    out.release()
+    print(f"\n视频合并完成: {output_path}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="合并多个视频片段为一个完整视频")
+    parser.add_argument("--input", required=True, nargs='+',
+                       help="输入视频的通配符模式或文件列表（如 segments/racing_*.mp4）")
+    parser.add_argument("--output", required=True,
+                       help="合并后的输出目录")
+
+    args = parser.parse_args()
+
+    try:
+        # 如果只有一个输入参数且包含通配符，则尝试展开
+        if len(args.input) == 1 and ('*' in args.input[0] or '?' in args.input[0]):
+            merge_videos(args.input[0], args.output)
+        else:
+            merge_videos(args.input, args.output)
+    except Exception as e:
+        print(f"错误: {e}")
+        sys.exit(1)
+```
+
+使用方式：
+
+```bash
+# 方式1：使用通配符（shell不会展开）
+python3 ./merge-video.py --input "segments/racing_*.mp4" --output ./full-videos
+
+# 方式2：直接传入多个文件（shell已经展开通配符）
+python3 ./merge-video.py --input segments/racing_1.mp4 segments/racing_2.mp4 segments/racing_3.mp4 --output ./full-videos
+```
+
+之后就可以根据 `input` 参数中的所有文件生成一个完整的 `racing.mp4` 到 `--output` 目录下。
+
+#### 推理 main
+
+```python
+import cv2
+import numpy as np
+import torch
+import argparse
+import os
+from skvideo.io import vreader, FFmpegWriter
+from ais_bench.infer.interface import InferSession
+
+from det_utils import letterbox, scale_coords, nms
+
+
+def preprocess_image(image, cfg, bgr2rgb=True):
+    """图片预处理"""
+    img, scale_ratio, pad_size = letterbox(image, new_shape=cfg['input_shape'])
+    if bgr2rgb:
+        img = img[:, :, ::-1]
+    img = img.transpose(2, 0, 1)  # HWC2CHW
+    img = np.ascontiguousarray(img, dtype=np.float32)
+    return img, scale_ratio, pad_size
+
+
+def draw_bbox(bbox, img0, color, wt, names):
+    """在图片上画预测框"""
+    det_result_str = ''
+    for idx, class_id in enumerate(bbox[:, 5]):
+        if float(bbox[idx][4] < float(0.05)):
+            continue
+        img0 = cv2.rectangle(img0, (int(bbox[idx][0]), int(bbox[idx][1])), (int(bbox[idx][2]), int(bbox[idx][3])),
+                             color, wt)
+        img0 = cv2.putText(img0, str(idx) + ' ' + names[int(class_id)], (int(bbox[idx][0]), int(bbox[idx][1] + 16)),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        img0 = cv2.putText(img0, '{:.4f}'.format(bbox[idx][4]), (int(bbox[idx][0]), int(bbox[idx][1] + 32)),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        det_result_str += '{} {} {} {} {} {}\n'.format(
+            names[bbox[idx][5]], str(bbox[idx][4]), bbox[idx][0], bbox[idx][1], bbox[idx][2], bbox[idx][3])
+    return img0
+
+def get_labels_from_txt(path):
+    """从txt文件获取图片标签"""
+    labels_dict = dict()
+    with open(path) as f:
+        for cat_id, label in enumerate(f.readlines()):
+            labels_dict[cat_id] = label.strip()
+    return labels_dict
+
+def infer_image(img_path, model, class_names, cfg):
+    """图片推理"""
+    # 图片载入
+    image = cv2.imread(img_path)
+    # 数据预处理
+    img, scale_ratio, pad_size = preprocess_image(image, cfg)
+    # 模型推理
+    output = model.infer([img])[0]
+
+    output = torch.tensor(output)
+    # 非极大值抑制后处理
+    boxout = nms(output, conf_thres=cfg["conf_thres"], iou_thres=cfg["iou_thres"])
+    pred_all = boxout[0].numpy()
+    # 预测坐标转换
+    scale_coords(cfg['input_shape'], pred_all[:, :4], image.shape, ratio_pad=(scale_ratio, pad_size))
+    # 图片预测结果可视化
+    img_vis = draw_bbox(pred_all, image, (0, 255, 0), 2, class_names)
+    cv2.imwrite("output.jpg", img_vis)  # 保存结果图片
+    return img_vis  # 可选返回
+
+def infer_frame_with_vis(image, model, labels_dict, cfg, bgr2rgb=True):
+    # 数据预处理
+    img, scale_ratio, pad_size = preprocess_image(image, cfg, bgr2rgb)
+    # 模型推理
+    output = model.infer([img])[0]
+
+    output = torch.tensor(output)
+    # 非极大值抑制后处理
+    boxout = nms(output, conf_thres=cfg["conf_thres"], iou_thres=cfg["iou_thres"])
+    pred_all = boxout[0].numpy()
+    # 预测坐标转换
+    scale_coords(cfg['input_shape'], pred_all[:, :4], image.shape, ratio_pad=(scale_ratio, pad_size))
+    # 图片预测结果可视化
+    img_vis = draw_bbox(pred_all, image, (0, 255, 0), 2, labels_dict)
+    return img_vis
+
+def img2bytes(image):
+    """将图片转换为字节码"""
+    return bytes(cv2.imencode('.jpg', image)[1])
+
+
+def infer_video(video_path, model, labels_dict, cfg, output_file_path):
+    """视频推理并保存为 output_file_path"""
+    # 读入视频
+    cap = cv2.VideoCapture(video_path)
+    # 获取原视频参数（帧率、分辨率）
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    # 创建视频写入对象（输出到output.mp4）
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 确保你的OpenCV支持该编码
+    writer = cv2.VideoWriter(output_file_path, fourcc, fps, (width, height))
+
+    while True:
+        ret, img_frame = cap.read()
+        if not ret:
+            break
+        # 对视频帧进行推理
+        image_pred = infer_frame_with_vis(img_frame, model, labels_dict, cfg, bgr2rgb=True)
+        # 写入处理后的帧
+        writer.write(image_pred)
+
+    # 释放资源
+    cap.release()
+    writer.release()
+    print("视频已保存为 ", output_file_path)
+
+def infer_camera(model, labels_dict, cfg):
+    """外设摄像头实时推理（移除Jupyter依赖，仅保留基础逻辑）"""
+    # 查找可用摄像头
+    def find_camera_index():
+        for index in range(10):
+            cap = cv2.VideoCapture(index)
+            if cap.read()[0]:
+                cap.release()
+                return index
+        raise ValueError("未检测到摄像头")
+
+    # 初始化摄像头
+    camera_index = find_camera_index()
+    cap = cv2.VideoCapture(camera_index)
+
+    # 创建窗口用于显示（可选）
+    cv2.namedWindow("Camera Feed", cv2.WINDOW_NORMAL)
+
+    while True:
+        _, img_frame = cap.read()
+        # 推理处理
+        image_pred = infer_frame_with_vis(img_frame, model, labels_dict, cfg)
+        # 显示处理结果（按Q键退出）
+        cv2.imshow("Camera Feed", image_pred)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # 释放资源
+    cap.release()
+    cv2.destroyAllWindows()
+
+cfg = {
+    'conf_thres': 0.4,  # 模型置信度阈值，阈值越低，得到的预测框越多
+    'iou_thres': 0.5,  # IOU阈值，高于这个阈值的重叠预测框会被过滤掉
+    'input_shape': [640, 640],  # 模型输入尺寸
+}
+
+
+def main():
+    # 参数设置
+    parser = argparse.ArgumentParser(description="Process video file")
+    parser.add_argument("--input", type=str, required=True, help="Input video file path")
+    parser.add_argument("--output", type=str, required=True, help="Output directory path")
+    args = parser.parse_args()
+    input_file_path = args.input
+    output_dir = args.output
+
+    input_filename = os.path.basename(input_file_path)
+    output_filename = f"output_{input_filename}"
+    output_file_path = os.path.join(output_dir, output_filename)
+
+    # 模型存放位置
+    model_path = 'yolo.om'
+    label_path = './coco_names.txt'
+
+    # 初始化推理模型
+    model = InferSession(0, model_path)
+    labels_dict = get_labels_from_txt(label_path)
+
+    # 推理
+    infer_mode = 'video'
+
+    if infer_mode == 'image':
+        img_path = 'world_cpu.jpg'
+        infer_image(img_path, model, labels_dict, cfg)
+    elif infer_mode == 'camera':
+        infer_camera(model, labels_dict, cfg)
+    elif infer_mode == 'video':
+        infer_video(input_file_path, model, labels_dict, cfg, output_file_path)
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+之后调用的时候也是，`--input` 指定输入文件的位置，`--output` 指定输出文件所在的目录。比如：
+
+```bash
+python3 ./main.py --input /root/workdir/data/input-file/racing_1.mp4 --output /root/workdir/data/output-file/
+```
+
+在容器中就用：
+
+```bash
+python3 ./main.py --input video-data/input-file/racing_1.mp4 --output video-data/output-file/
+```
+
+#### 查询设备的算力档位
+
+在 atlas 节点上直接查询：
+
+```bash
+(base) root@atlas:~/workdir/data/output-file# npu-smi info -t nve-level -i 0 -c 0
+        nve level                      : 20T_1.6GHz
+```
+
+在 master 节点上执行如下命令可以输出 20：
+
+```bash
+ssh atlas 'npu-smi info -t nve-level -i 0 -c 0 | awk "/nve level/ {print \$4}" | cut -d"T" -f1'
+```
+
 
 
 

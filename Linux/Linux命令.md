@@ -380,6 +380,25 @@ echo "Cleanup completed under root: ${root_dir:-/}"
 
 就可以将安装的这些文件、目录都删除啦。
 
+## 9. Linux 主机之间配置免密登录
+
+有时候我们需要通过一台主机去操作其他主机（比如 Kubernetes），例如从其他主机拷贝文件过来，或者拷贝文件到其他主机上。这时候需要使用到 `scp` 命令。
+
+但是 `scp` 命令每次使用的时候都要输入密码，这就让我们不好去实现一键安装式脚本。所以我们可以在 Linux 集群的 master 节点（主要操作的节点）上执行如下命令，之后可以直接免密登录到其他主机上。
+
+```bash
+# 生成 ssh 公钥/私钥对
+ssh-keygen
+
+ssh-copy-id root@k8s-master1  # 将公钥复制到 master1 节点
+ssh-copy-id root@k8s-master2  # 将公钥复制到 master2 节点
+ssh-copy-id root@k8s-master3  # 将公钥复制到 master3 节点
+ssh-copy-id root@k8s-worker1  # 将公钥复制到 worker1 节点
+
+# 测试
+ssh root@k8s-master1
+```
+
 
 
 

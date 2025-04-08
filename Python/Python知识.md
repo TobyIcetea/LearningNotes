@@ -48,6 +48,67 @@ pip install -r requirements.txt
 
 所以虚拟环境的本质就是临时修改了 `PATH` 变量，这样的话，之后在终端输入命令（如 pip、python）等命令的时候，系统会优先使用虚拟环境中的二进制文件，而不是全局安装的版本。
 
+## 3. pip 安装使用国内源
+
+首先是安装 pip。在 Centos 中，安装 pip 可以使用如下的命令：
+
+```bash
+dnf install python3-pip
+```
+
+之后使用 pip 进行 `pip3 install` 操作的时候，可以使用如下的源：
+
+```bash
+Python官方 https://pypi.python.org/simple/
+
+阿里云 https://mirrors.aliyun.com/pypi/simple/
+
+清华大学 https://pypi.tuna.tsinghua.edu.cn/simple/
+
+中国科技大学 https://pypi.mirrors.ustc.edu.cn/simple/
+
+中国科学技术大学 https://pypi.mirrors.ustc.edu.cn/simple/
+```
+
+比如，假如我们要安装 `cv2`，可以使用：
+
+```bash
+pip3 install -i https://mirrors.aliyun.com/pypi/simple/ opencv-python
+```
+
+如果要进行全局修改，也可以通过修改配置文件的方式完成配置：
+
+```bash
+mkdir ~/.pip
+
+cat << EOF > ~/.pip/pip.conf
+[global]
+index-url = https://pypi.tuna.tsinghua.edu.cn/simple
+[install]
+trusted-host = https://pypi.tuna.tsinghua.edu.cn
+EOF
+```
+
+可以查看一下镜像地址列表：
+
+```bash
+[root@master ascend-infer]# pip3 config list
+global.index-url='https://pypi.tuna.tsinghua.edu.cn/simple'
+install.trusted-host='https://pypi.tuna.tsinghua.edu.cn'
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

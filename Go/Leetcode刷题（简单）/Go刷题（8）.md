@@ -781,117 +781,367 @@ func lastStoneWeight(stones []int) int {
 
 ```
 
+## 231. 高度检查器（1051）
 
+学校打算为全体学生拍一张年度纪念照。根据要求，学生需要按照 **非递减** 的高度顺序排成一行。
 
+排序后的高度情况用整数数组 `expected` 表示，其中 `expected[i]` 是预计排在这一行中第 `i` 位的学生的高度（**下标从 0 开始**）。
 
+给你一个整数数组 `heights` ，表示 **当前学生站位** 的高度情况。`heights[i]` 是这一行中第 `i` 位学生的高度（**下标从 0 开始**）。
 
+返回满足 `heights[i] != expected[i]` 的 **下标数量** 。
 
+```go
+func heightChecker(heights []int) int {
+    sorted := make([]int, len(heights))
+    copy(sorted, heights)
 
-待做题目：
+    sort.Ints(sorted)
 
-```bash
-1047. 删除字符串中的所有相邻重复项
-2087
-73.4%
-简单
-1051. 高度检查器
-747
-80.4%
-简单
-1056. 易混淆数
-201
-46.4%
-简单
-1064. 不动点
-121
-65.0%
-简单
-1065. 字符串的索引对
-121
-57.2%
-简单
-1071. 字符串的最大公因子
-1060
-59.2%
-简单
-1078. Bigram 分词
-555
-65.1%
-简单
-1085. 最小元素各数位之和
-116
-78.1%
-简单
-1086. 前五科的均分
-150
-69.5%
-简单
-1089. 复写零
-906
-54.9%
-简单
-1099. 小于 K 的两数之和
-167
-61.2%
-简单
-1103. 分糖果 II
-1403
-67.9%
-简单
-1108. IP 地址无效化
-1075
-85.3%
-简单
-1118. 一月有多少天
-73
-66.1%
-简单
-1119. 删去字符串中的元音
-195
-87.3%
-简单
-1122. 数组的相对排序
-1239
-71.0%
-简单
-1128. 等价多米诺骨牌对的数量
-580
-54.6%
-简单
-1133. 最大唯一数
-132
-69.7%
-简单
-1134. 阿姆斯特朗数
-98
-78.1%
-简单
-1137. 第 N 个泰波那契数
-1819
-61.1%
-简单
-1150. 检查一个数是否在数组中占绝大多数
-147
-59.9%
-简单
-1154. 一年中的第几天
-769
-62.7%
-简单
-1160. 拼写单词
-1128
-68.2%
-简单
-1165. 单行键盘
-174
-86.1%
-简单
-1175. 质数排列
-410
-57.1%
-简单
+    res := 0
 
+    for i := range sorted {
+        if sorted[i] != heights[i] {
+            res++
+        }
+    }
+
+    return res
+}
 ```
+
+## 232. Bigram分词（1078）
+
+给出第一个词 `first` 和第二个词 `second`，考虑在某些文本 `text` 中可能以 `"first second third"` 形式出现的情况，其中 `second` 紧随 `first` 出现，`third` 紧随 `second` 出现。
+
+对于每种这样的情况，将第三个词 "`third`" 添加到答案中，并返回答案。
+
+```go
+func findOcurrences(text string, first string, second string) []string {
+    res := make([]string, 0)
+
+    words := strings.Split(text, " ")
+    for i := 0; i + 2 < len(words); i++ {
+        if words[i] == first && words[i + 1] == second {
+            res = append(res, words[i + 2])
+        }
+    }
+
+    return res
+}
+```
+
+## 233. 复写零（1089）
+
+给你一个长度固定的整数数组 `arr` ，请你将该数组中出现的每个零都复写一遍，并将其余的元素向右平移。
+
+注意：请不要在超过该数组长度的位置写入元素。请对输入的数组 **就地** 进行上述修改，不要从函数返回任何东西。
+
+```go
+func duplicateZeros(arr []int)  {
+    curLength := 0
+    index := 0
+    for curLength < len(arr) {
+        if arr[index] == 0 {
+            curLength += 2
+        } else {
+            curLength++
+        }
+        index++
+    }
+    index -= 1  // 此时 index 指向的元素是之后要放进 arr 中的元素
+
+    pos := len(arr) - 1  // 最后填充 arr 的时候使用的下标
+    if curLength > len(arr) {
+        // 说明最后一个是 0 元素，而且最后一个 0 元素只占用一个位置
+        arr[len(arr) - 1] = 0
+        pos = len(arr) - 2
+        index -= 1
+    }
+
+    for pos >= 0 {
+        if arr[index] == 0 {
+            arr[pos] = 0
+            arr[pos - 1] = 0
+            pos -= 2
+        } else {
+            arr[pos] = arr[index]
+            pos -= 1
+        }
+        index -= 1
+    }
+}
+```
+
+## 234. 分糖果II（1103）
+
+排排坐，分糖果。
+
+我们买了一些糖果 `candies`，打算把它们分给排好队的 **`n = num_people`** 个小朋友。
+
+给第一个小朋友 1 颗糖果，第二个小朋友 2 颗，依此类推，直到给最后一个小朋友 `n` 颗糖果。
+
+然后，我们再回到队伍的起点，给第一个小朋友 `n + 1` 颗糖果，第二个小朋友 `n + 2` 颗，依此类推，直到给最后一个小朋友 `2 * n` 颗糖果。
+
+重复上述过程（每次都比上一次多给出一颗糖果，当到达队伍终点后再次从队伍起点开始），直到我们分完所有的糖果。注意，就算我们手中的剩下糖果数不够（不比前一次发出的糖果多），这些糖果也会全部发给当前的小朋友。
+
+返回一个长度为 `num_people`、元素之和为 `candies` 的数组，以表示糖果的最终分发情况（即 `ans[i]` 表示第 `i` 个小朋友分到的糖果数）。
+
+```go
+func distributeCandies(candies int, numPeople int) []int {
+    arr := make([]int, numPeople)
+    count := 0
+    for candies > 0 {
+        // 本次要给的小朋友是 count % numPeople 这个编号位置处的
+        // 要给的数量是 count + 1
+        if candies >= count + 1 {
+            // 给 count + 1 个
+            arr[count % numPeople] += count + 1
+            candies -= count + 1
+        } else {
+            // 给 candies 个
+            arr[count % numPeople] += candies
+            candies = 0
+        }
+        count++
+    }
+
+    return arr
+}
+```
+
+## 235. IP地址无效化（1108）
+
+给你一个有效的 IPv4 地址 address，返回这个 IP 地址的无效化版本。
+
+所谓无效化 IP 地址，其实就是用 "[.]" 代替了每个 "."。
+
+```go
+func defangIPaddr(address string) string {
+    var builder strings.Builder
+    for i := 0; i < len(address); i++ {
+        if address[i] == '.' {
+            builder.WriteString("[.]")
+        } else {
+            builder.WriteByte(address[i])
+        }
+    }
+    return builder.String()
+}
+```
+
+## 236. 数组的相对排序（1122）
+
+给你两个数组，`arr1` 和 `arr2`，`arr2` 中的元素各不相同，`arr2` 中的每个元素都出现在 `arr1` 中。
+
+对 `arr1` 中的元素进行排序，使 `arr1` 中项的相对顺序和 `arr2` 中的相对顺序相同。未在 `arr2` 中出现过的元素需要按照升序放在 `arr1` 的末尾。
+
+```go
+func relativeSortArray(arr1 []int, arr2 []int) []int {
+    res := make([]int, 0, len(arr1))
+
+    counts := make([]int, 1005)
+    for _, num := range arr1 {
+        counts[num]++
+    }
+
+    for _, num := range arr2 {
+        count := counts[num]
+        for i := 0; i < count; i++ {
+            res = append(res, num)
+        }
+        counts[num] = 0
+    }
+
+    for i, num := range counts {
+        for num != 0 {
+            res = append(res, i)
+            num--
+        }
+    }
+
+    return res
+}
+```
+
+## 237. 等价多米诺古牌对的数量（1128）
+
+给你一组多米诺骨牌 `dominoes` 。
+
+形式上，`dominoes[i] = [a, b]` 与 `dominoes[j] = [c, d]` **等价** 当且仅当 (`a == c` 且 `b == d`) 或者 (`a == d` 且 `b == c`) 。即一张骨牌可以通过旋转 `0` 度或 `180` 度得到另一张多米诺骨牌。
+
+在 `0 <= i < j < dominoes.length` 的前提下，找出满足 `dominoes[i]` 和 `dominoes[j]` 等价的骨牌对 `(i, j)` 的数量。
+
+```go
+func numEquivDominoPairs(dominoes [][]int) int {
+	// 保证每一个数对都是：[小，大]
+	for i := range dominoes {
+		if dominoes[i][0] > dominoes[i][1] {
+			dominoes[i][0], dominoes[i][1] = dominoes[i][1], dominoes[i][0]
+		}
+	}
+
+	// 以第一个数字为优先，进行升序排序
+	sort.Slice(dominoes, func(i, j int) bool {
+		if dominoes[i][0] < dominoes[j][0] {
+			return true
+		} else if dominoes[i][0] > dominoes[j][0] {
+			return false
+		} else {
+			return dominoes[i][1] < dominoes[j][1]
+		}
+	})
+
+	// 传入一个值 n，返回 n! / 2!
+	// value 初始值为 1，从 3 开始乘，一直乘到 n
+	getValue := func(num int) int {
+		return num * (num - 1) / 2
+	}
+
+	res := 0
+	index := 0
+	count := 1 // 有多少一样的
+	for index < len(dominoes) {
+		for index+1 < len(dominoes) &&
+			dominoes[index][0] == dominoes[index+1][0] &&
+			dominoes[index][1] == dominoes[index+1][1] {
+			count++
+			index++
+		}
+		if count >= 2 {
+			res += getValue(count)
+		}
+		index++
+		count = 1
+	}
+
+	return res
+}
+```
+
+## 238. 一年中的第几天（1154）
+
+给你一个字符串 date ，按 YYYY-MM-DD 格式表示一个 现行公元纪年法 日期。返回该日期是当年的第几天。
+
+```go
+func dayOfYear(date string) int {
+	year, _ := strconv.Atoi(date[0:4])
+	month, _ := strconv.Atoi(date[5:7])
+	day, _ := strconv.Atoi(date[8:])
+
+	res := 0
+    isLeapYear := false
+	if year%4 == 0 && year%100 != 0 || year%400 == 0 {
+		isLeapYear = true
+	}
+
+    for i := 1; i < month; i++ {
+        if i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 10 || i == 12 {
+            res += 31
+        } else if i == 2 {
+            if isLeapYear {
+                res += 29
+            } else {
+                res += 28
+            }
+        } else {
+            res += 30
+        }
+    }
+
+    res += day
+
+    return res
+}
+```
+
+## 239. 拼写单词（1160）
+
+给你一份『词汇表』（字符串数组） `words` 和一张『字母表』（字符串） `chars`。
+
+假如你可以用 `chars` 中的『字母』（字符）拼写出 `words` 中的某个『单词』（字符串），那么我们就认为你掌握了这个单词。
+
+注意：每次拼写（指拼写词汇表中的一个单词）时，`chars` 中的每个字母都只能用一次。
+
+返回词汇表 `words` 中你掌握的所有单词的 **长度之和**。
+
+```go
+func countCharacters(words []string, chars string) int {
+	charsCount := make([]int, 26)
+	for i := 0; i < len(chars); i++ {
+		charsCount[chars[i]-'a']++
+	}
+
+	res := 0
+
+Outer:
+	for _, word := range words {
+		tempCount := make([]int, 26)
+		for i := 0; i < len(word); i++ {
+			tempCount[word[i]-'a']++
+		}
+		for i := 0; i < 26; i++ {
+			if tempCount[i] > charsCount[i] {
+				continue Outer
+			}
+		}
+		res += len(word)
+	}
+
+	return res
+}
+```
+
+## 240. 质数排列（1175）
+
+请你帮忙给从 `1` 到 `n` 的数设计排列方案，使得所有的「质数」都应该被放在「质数索引」（索引从 1 开始）上；你需要返回可能的方案总数。
+
+让我们一起来回顾一下「质数」：质数一定是大于 1 的，并且不能用两个小于它的正整数的乘积来表示。
+
+由于答案可能会很大，所以请你返回答案 **模 mod `10^9 + 7`** 之后的结果即可。
+
+```go
+func numPrimeArrangements(n int) int {
+	// 计算出质数的 num 和 非质数的 num
+	arr := make([]bool, n+1)
+	for i := 2; i <= n; i++ {
+		arr[i] = true
+	}
+	for i := 2; i <= n; i++ {
+		for index := i + i; index <= n; index += i {
+			arr[index] = false
+		}
+	}
+
+	primeCount := 0
+	notPrimeCount := 0
+	for i := 1; i <= n; i++ {
+		if arr[i] {
+			primeCount++
+		} else {
+			notPrimeCount++
+		}
+	}
+
+	getFactorial := func(num int) int {
+		res := 1
+		for i := 2; i <= num; i++ {
+			res = (res * i) % (1e9 + 7)
+		}
+		return res
+	}
+
+	return (getFactorial(primeCount) * getFactorial(notPrimeCount)) % (1e9 + 7)
+}
+```
+
+
+
+
+
+
+
+
 
 
 
