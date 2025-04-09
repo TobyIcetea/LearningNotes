@@ -399,6 +399,57 @@ ssh-copy-id root@k8s-worker1  # 将公钥复制到 worker1 节点
 ssh root@k8s-master1
 ```
 
+## 10. https 测试
+
+本次我们通过在 docker 中启动一个 nginx，并且自签名一些证书，然后通过 https 去访问 nginx 主页：
+
+```bash
+# 创建工作目录
+mkdir -p ~/https-demo/{certs,html,nginx}
+cd ~/https-demo
+
+# 创建 RSA 私钥
+openssl genrsa -out certs/nginx.key 2048
+# 根据私钥生成自签名证书（.pem 证书）
+# .pem 和 .crt 本质上是统一格式的不同扩展名。不过 Linux 常用 .pem，Windows 常用 .crt。
+openssl req -x509 -new -key certs/nginx.key -days 365 \
+    -out certs/nginx.pem \
+    -subj "/CN=localhost"
+
+# 创建 nginx 配置文件
+cat > nginx/nginx.conf <<'EOF'
+events {}
+http {
+    server {
+        listen 443 ssl;
+        ssl_certificate /etc/nginx/certs/nginx.pem;
+        ssl_certificate_key /etc/nginx/certs/nginx.key;
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+    }
+}
+EOF
+
+# 创建测试页面
+echo "<h1>Docker HTTPS Test Success!</h1>" > html/index.html
+
+# 启动 nginx 容器，暴露 443 端口并且映射到主机上
+docker run -d --name https-demo \
+    -p 443:443 \
+    -v $(pwd)/html:/usr/share/nginx/html \
+    -v $(pwd)/certs:/etc/nginx/certs \
+    -v $(pwd)/nginx/nginx.conf:/etc/nginx/nginx.conf \
+    nginx:latest
+
+# 测试
+# -k 表示忽略证书不安全警告
+curl -k https://localhost
+```
+
+
+
 
 
 
