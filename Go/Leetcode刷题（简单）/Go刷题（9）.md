@@ -477,6 +477,128 @@ func findSpecialInteger(arr []int) int {
 }
 ```
 
+## 255. 二进制链表转整数（1290）
+
+给你一个单链表的引用结点 `head`。链表中每个结点的值不是 0 就是 1。已知此链表是一个整数数字的二进制表示形式。
+
+请你返回该链表所表示数字的 **十进制值** 。
+
+```go
+func getDecimalValue(head *ListNode) int {
+	res := 0
+	node := head
+	for node != nil {
+		res = (res << 1) + node.Val
+		node = node.Next
+	}
+	return res
+}
+```
+
+## 256. 统计位数为偶数的数字（1295）
+
+给你一个整数数组 `nums`，请你返回其中位数为 **偶数** 的数字的个数。
+
+```go
+func findNumbers(nums []int) int {
+    res := 0
+    for _, num := range nums {
+        if num >= 10 && num <= 99 || num >= 1000 && num <= 9999 || num == 100000 {
+            res++
+        }
+    }
+    return res
+}
+```
+
+## 257. 将每个元素替换为右侧最大元素（1299）
+
+给你一个数组 `arr` ，请你将每个元素用它右边最大的元素替换，如果是最后一个元素，用 `-1` 替换。
+
+完成所有替换操作后，请你返回这个数组。
+
+```go
+func replaceElements(arr []int) []int {
+    maxNum := -1
+    for i := len(arr) - 1; i >= 0; i-- {
+        maxNumNext := max(maxNum, arr[i])
+        arr[i] = maxNum
+        maxNum = maxNumNext
+    }
+    return arr
+}
+```
+
+## 258. 和为零的N个不同整数（1304）
+
+给你一个整数 `n`，请你返回 **任意** 一个由 `n` 个 **各不相同** 的整数组成的数组，并且这 `n` 个数相加和为 `0` 。
+
+```go
+func sumZero(n int) []int {
+    res := make([]int, 0, n)
+
+    half := n / 2
+    for i := 1; i <= half; i++ {
+        res = append(res, i, -i)
+    }
+    if n & 1 == 1 {
+        res = append(res, 0)
+    }
+
+    return res
+}
+```
+
+## 259. 解码字母到整数映射（1309）
+
+给你一个字符串 `s`，它由数字（`'0'` - `'9'`）和 `'#'` 组成。我们希望按下述规则将 `s` 映射为一些小写英文字符：
+
+- 字符（`'a'` - `'i'`）分别用（`'1'` - `'9'`）表示。
+- 字符（`'j'` - `'z'`）分别用（`'10#'` - `'26#'`）表示。
+
+返回映射之后形成的新字符串。
+
+题目数据保证映射始终唯一。
+
+```go
+func freqAlphabets(s string) string {
+    var builder strings.Builder
+
+    for i := 0; i < len(s); i++ {
+        if i + 2 < len(s) && s[i + 2] == '#' {
+            // 将 s[i], s[i+1], s[i+2] 整理为一个字母
+            num := (s[i] - '0') * 10 + (s[i + 1] - '0')
+            builder.WriteRune(rune(num - 1 + 'a'))
+            i += 2
+        } else {
+            builder.WriteRune(rune(s[i] - '1' + 'a'))
+        }
+    }
+
+    return builder.String()
+}
+```
+
+## 260. 解压缩编码列表（1313）
+
+给你一个以行程长度编码压缩的整数列表 `nums` 。
+
+考虑每对相邻的两个元素 `[freq, val] = [nums[2*i], nums[2*i+1]]` （其中 `i >= 0` ），每一对都表示解压后子列表中有 `freq` 个值为 `val` 的元素，你需要从左到右连接所有子列表以生成解压后的列表。
+
+请你返回解压后的列表。
+
+```go
+func decompressRLElist(nums []int) []int {
+    res := make([]int, 0)
+    for i := 0; i < len(nums); i += 2 {
+        for j := 0; j < nums[i]; j++ {
+            res = append(res, nums[i + 1])
+        }
+    }
+    return res
+}
+```
+
 
 
 
@@ -492,30 +614,6 @@ func findSpecialInteger(arr []int) int {
 待做题目：
 
 ```bash
-1290. 二进制链表转整数
-1135
-80.1%
-简单
-1295. 统计位数为偶数的数字
-843
-79.3%
-简单
-1299. 将每个元素替换为右侧最大元素
-701
-77.9%
-简单
-1304. 和为零的 N 个不同整数
-532
-70.5%
-简单
-1309. 解码字母到整数映射
-519
-76.7%
-简单
-1313. 解压缩编码列表
-684
-83.4%
-简单
 1317. 将整数转换为两个无零整数的和
 292
 62.7%
