@@ -663,11 +663,10 @@ mkdir /dev/shm/dmp
 mkdir /home/HwHiAiUser/hdc_ppc
 nohup /var/dmp_daemon -I -M -U 8087 >&/dev/null &
 /var/slogd -d
-#启动推理程序，若用户不涉及推理程序可将如下命令注释
-#进入业务推理程序的可执行文件所在目录，请根据实际可执行文件所在目录配置
-cd /home/AscendWork/dist
-#运行可执行文件，请根据实际文件名称配置
-python3 main.py
+
+# 启动推理程序，若用户不涉及推理程序可将如下命令注释
+# 运行可执行文件，请根据实际文件名称配置
+python3 ./main.py --input video-data/input-file/ --output video-data/output-file/
 
 EOF
 ```
@@ -775,7 +774,7 @@ CMD bash /home/AscendWork/run.sh
 （注意其中的 NNRT_PKG 和 DIST_PKG 需要自行更换）
 
 ```bash
-docker build -t ascend-infer:0329 --build-arg NNRT_PKG=./Ascend-cann-nnrt_7.0.0_linux-aarch64.run --build-arg DIST_PKG=./yolov5.tgz .
+docker build -t ascend-infer:0411 --build-arg NNRT_PKG=./Ascend-cann-nnrt_7.0.0_linux-aarch64.run --build-arg DIST_PKG=./yolov5.tgz .
 ```
 
 ### 启动容器（Ubuntu）
@@ -820,7 +819,7 @@ docker run --rm --network host -it -u HwHiAiUser:HwHiAiUser --pid=host \
 -v /usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64:ro \
 -v /var/slogd:/var/slogd:ro \
 -v /var/dmp_daemon:/var/dmp_daemon:ro \
--- ascend-infer:0329 /bin/bash
+-- ascend-infer:0411 /bin/bash
 ```
 
 容器启动之后，在容器中执行如下命令查看当前 docker 容器中可以使用的 davinci 设备：
@@ -1239,25 +1238,71 @@ spec:
 
 基本的想法是，通过 master 节点进行任务的切分，之后分节点进行任务的处理，最后再返回到 master 节点进行合并。
 
+#### 查询设备的算力档位
+
+在 atlas 节点上直接查询：
+
+```bash
+(base) root@atlas:~/workdir/data/output-file# npu-smi info -t nve-level -i 0 -c 0
+        nve level                      : 20T_1.6GHz
+```
+
+通过如下命令，可以获取每个节点的名称和对应的算力：
+
+```bash
+#!/bin/bash
+
+nodes=$(kubectl get nodes -o name | grep '^node/atlas' | sed 's/^node\///')
+
+output_file="npu_levels.json"
+
+# 创建关联数组（类似于 map）
+declare -A levels
+
+for node in $nodes; do
+    echo "Checking NPU level on: $node"
+    if level=$(ssh -o ConnectTimeout=5 "$node" "npu-smi info -t nve-level -i 0 -c 0 2>/dev/null | awk '/nve level/ {print \$4}' | cut -dT -f1"); then
+        levels["$node"]=$level
+    else
+        levels["$node"]="null"
+        echo "[WARNING] Failed to check $node" >&2
+    fi
+done
+
+# 遍历数组，生成jq表达式
+jq_filter='{}'
+for key in "${!levels[@]}"; do
+  jq_filter+=" | .[\"$key\"] = ${levels[$key]}"
+done
+
+# 生成JSON文件
+jq -n "$jq_filter" > ${output_file}
+```
+
 #### split_video
 
 ```python
 import argparse
 import os
 import cv2
+import json
 
-def split_video(input_path, output_dir, ratios):
-    """
-    将视频按比例分割成多个部分
-
-    参数:
-        input_path: 输入视频路径
-        output_dir: 输出目录
-        ratios: 分割比例列表（如 [0.3, 0.3, 0.4]）
-    """
+def split_video(input_path, output_dir, segments):
     # 验证比例总和为1
-    if abs(sum(ratios) - 1.0) > 0.001:
+    total_ratio = sum(seg['ratio'] for seg in segments)
+    if abs(total_ratio - 1.0) > 0.001:
         raise ValueError("比例之和必须等于1")
+
+    # 准备输出路径并创建目录
+    outputs = []
+    for seg in segments:
+        output_path = os.path.join(output_dir, seg['filename'])
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        outputs.append(output_path)
+
+    # 检查文件名唯一性
+    if len(outputs) != len(set(outputs)):
+        raise ValueError("输出文件名存在重复")
 
     # 打开视频文件
     cap = cv2.VideoCapture(input_path)
@@ -1274,21 +1319,13 @@ def split_video(input_path, output_dir, ratios):
     # 计算分割点
     split_points = []
     accumulated = 0.0
-    for ratio in ratios[:-1]:  # 最后一个分割点不需要计算
-        accumulated += ratio
+    for seg in segments[:-1]:  # 最后一个分割点不需要计算
+        accumulated += seg['ratio']
         split_points.append(int(total_frames * accumulated))
 
-    # 准备输出文件名
-    input_filename = os.path.basename(input_path)
-    filename_without_ext = os.path.splitext(input_filename)[0]
-    outputs = [os.path.join(output_dir, f"{filename_without_ext}_{i+1}.mp4")
-              for i in range(len(ratios))]
-
-    # 确保输出目录存在
-    os.makedirs(output_dir, exist_ok=True)
-
     # 创建视频写入器
-    writers = [cv2.VideoWriter(output, codec, fps, (width, height)) for output in outputs]
+    writers = [cv2.VideoWriter(output, codec, fps, (width, height))
+              for output in outputs]
 
     # 读取并写入帧
     current_writer_idx = 0
@@ -1315,133 +1352,203 @@ def split_video(input_path, output_dir, ratios):
     for output in outputs:
         print(f"  {output}")
 
+
+def parse_npu_json(json_path):
+    try:
+        with open(json_path, 'r') as f:
+            npu_data = json.load(f)
+    except FileNotFoundError:
+        raise ValueError(f"JSON文件未找到: {json_path}")
+    except json.JSONDecodeError:
+        raise ValueError(f"JSON文件格式错误: {json_path}")
+
+    segments = []
+    total_power = 0
+    filenames = set()
+
+    # 获取命令行输入的input参数
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    args, _ = parser.parse_known_args()  # 允许部分解析参数
+    base_name = os.path.splitext(os.path.basename(args.input))[0]
+
+    devices = list(npu_data.items())  # 保持原始顺序
+
+    for idx, (device, config_power) in enumerate(devices, 1):
+        power = float(config_power)
+        filename = f"{base_name}_{idx}.mp4"
+
+        # 数据校验
+        if power <= 0:
+            raise ValueError(f"设备 {device} 的算力值必须大于0")
+        if not filename.strip():
+            raise ValueError(f"设备 {device} 的文件名不能为空")
+        if filename in filenames:
+            raise ValueError(f"文件名重复: {filename}")
+        filenames.add(filename)
+        total_power += power
+        segments.append({
+            'device': device,
+            'power': power,
+            'filename': filename.strip()
+        })
+
+    if total_power <= 0:
+        raise ValueError("总算力值必须大于0")
+
+    # 计算比例
+    for seg in segments:
+        seg['ratio'] = seg['power'] / total_power
+
+    return segments
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="将视频按比例分割成多个部分")
+    parser = argparse.ArgumentParser(description="根据NPU算力配置分割视频")
     parser.add_argument("--input", required=True, help="输入视频文件路径")
-    parser.add_argument("--output", required=True,
-                       help="输出目录路径")
-    parser.add_argument("--ratios", type=float, nargs='+', required=True,
-                       help="分割比例列表（如 0.3 0.3 0.4）")
+    parser.add_argument("--output", required=True, help="输出目录路径")
+    parser.add_argument("--npu-json", required=True,
+                      help="包含NPU算力配置的JSON文件路径")
 
     args = parser.parse_args()
 
     try:
-        split_video(args.input, args.output, args.ratios)
+        segments = parse_npu_json(args.npu_json)
+        # 提取比例列表（保持原有分割逻辑兼容）
+        ratios = [seg['ratio'] for seg in segments]
+        # 调用修改后的分割函数
+        split_video(args.input, args.output, segments)
+
+        # 将处理后的数据写回JSON文件
+        modified_data = {}
+        for seg in segments:
+            device = seg['device']
+            modified_data[device] = {
+                'power': seg['power'],
+                'filename': seg['filename']
+            }
+
+        with open(args.npu_json, 'w') as f:
+            json.dump(modified_data, f, indent=4, ensure_ascii=False)
+
     except Exception as e:
         print(f"错误: {e}")
-
 ```
 
 操作方式：
 
 ```bash
-python3 ./split-video.py --input full-videos/racing.mp4 --output ./segments/ --ratios 0.8 0.2
+python3 ./split-video.py     --input full-videos/racing.mp4     --output ./segments/     --npu-json npu-levels.json
 ```
 
-之后就可以在 `--output` 目录下生成两个文件：`racing_1.mp4` 和 `racing_2.mp4`。
+之后就可以在 `--output` 目录下生成两个文件：`racing_1.mp4` 和 `racing_2.mp4`。并且修改 json 文件为如下格式：
 
-#### merge_video
+```json
+{
+  "atlas1": {
+    "power": 8,
+    "filename": "racing_1.mp4"
+  },
+  "atlas": {
+    "power": 20,
+    "filename": "racing_2.mp4"
+  }
+}
+```
+
+#### 按照 json 将视频文件进行分发
 
 ```python
-import argparse
+import json
+import subprocess
 import os
-import glob
-import cv2
-import sys
+import argparse
+from pathlib import Path
 
-def merge_videos(input_pattern, output_dir):
-    """
-    合并多个视频片段为一个完整视频
+def auto_scp(json_file, source_dir, dest_dir):
+    # 加载JSON文件
+    try:
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        print(f"错误: {json_file} 文件未找到")
+        return
+    except json.JSONDecodeError:
+        print(f"错误: {json_file} 格式不正确")
+        return
 
-    参数:
-        input_pattern: 输入视频的通配符模式（如 "racing_*.mp4"）
-        output_dir: 合并后的输出目录
-    """
-    # 如果传入的是多个文件（shell已经展开通配符），则直接使用这些文件
-    if isinstance(input_pattern, list):
-        input_files = sorted(input_pattern)
-    else:
-        input_files = sorted(glob.glob(input_pattern))
+    # 处理每个节点
+    for node_name, node_info in data.items():
+        filename = node_info.get('filename')
+        if not filename:
+            print(f"警告: {node_name} 缺少 filename 字段，跳过")
+            continue
 
-    if not input_files:
-        raise ValueError(f"没有找到匹配的视频文件")
+        source_file = os.path.join(source_dir, filename)
+        if not os.path.exists(source_file):
+            print(f"错误: 源文件 {source_file} 不存在，跳过")
+            continue
 
-    print(f"找到 {len(input_files)} 个视频片段:")
-    for f in input_files:
-        print(f"  {f}")
+        # 构建远程命令来检查并创建目标目录
+        check_dir_cmd = [
+            'ssh',
+            node_name,
+            f'mkdir -p {dest_dir} && echo "目录已存在或创建成功" || echo "目录创建失败"'
+        ]
 
-    # 从输入文件名中提取基础文件名
-    first_file = input_files[0]
-    base_name = os.path.basename(first_file)
-    if '_' in base_name:
-        base_name = base_name.split('_')[0] + '.mp4'
-    else:
-        base_name = 'merged_' + base_name
-    
-    # 确保输出目录存在
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, base_name)
+        # 执行SCP传输
+        print(f"\n处理节点 {node_name}:")
+        print(f"1. 确保目标目录存在...")
+        try:
+            # 检查并创建远程目录
+            result = subprocess.run(check_dir_cmd, capture_output=True, text=True)
+            if "失败" in result.stdout:
+                print(f"错误: 无法在 {node_name} 上创建目录 {dest_dir}")
+                continue
+            print("  目录验证成功")
 
-    # 读取第一个视频获取参数
-    sample = cv2.VideoCapture(first_file)
-    fps = sample.get(cv2.CAP_PROP_FPS)
-    width = int(sample.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(sample.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    codec = cv2.VideoWriter_fourcc(*'mp4v')
-    sample.release()
+            # 执行文件传输
+            print(f"2. 传输 {filename} 到 {node_name}:{dest_dir}...")
+            scp_command = ['scp', source_file, f"{node_name}:{dest_dir}"]
+            subprocess.run(scp_command, check=True)
+            print(f"  传输成功!")
 
-    # 创建输出视频写入器
-    out = cv2.VideoWriter(output_path, codec, fps, (width, height))
-
-    # 逐个读取并写入视频片段
-    for input_file in input_files:
-        print(f"正在处理: {input_file}")
-        cap = cv2.VideoCapture(input_file)
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            out.write(frame)
-
-        cap.release()
-
-    out.release()
-    print(f"\n视频合并完成: {output_path}")
+        except subprocess.CalledProcessError as e:
+            print(f"失败: 处理 {node_name} 时出错 - {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="合并多个视频片段为一个完整视频")
-    parser.add_argument("--input", required=True, nargs='+',
-                       help="输入视频的通配符模式或文件列表（如 segments/racing_*.mp4）")
-    parser.add_argument("--output", required=True,
-                       help="合并后的输出目录")
+    # 设置命令行参数
+    parser = argparse.ArgumentParser(description='自动将视频文件传输到NPU节点')
+    parser.add_argument('--input', required=True, help='JSON配置文件路径')
+    parser.add_argument('--source-dir', required=True, help='源文件目录')
+    parser.add_argument('--dest-dir', required=True, help='目标目录路径')
 
     args = parser.parse_args()
 
-    try:
-        # 如果只有一个输入参数且包含通配符，则尝试展开
-        if len(args.input) == 1 and ('*' in args.input[0] or '?' in args.input[0]):
-            merge_videos(args.input[0], args.output)
-        else:
-            merge_videos(args.input, args.output)
-    except Exception as e:
-        print(f"错误: {e}")
-        sys.exit(1)
+    # 规范化路径
+    source_dir = os.path.abspath(args.source_dir)
+    dest_dir = args.dest_dir.rstrip('/')  # 去除末尾的斜杠
+
+    # 检查源目录是否存在
+    if not os.path.isdir(source_dir):
+        print(f"错误: 源目录 {source_dir} 不存在")
+        exit(1)
+
+    # 执行主函数
+    auto_scp(args.input, source_dir, dest_dir)
+
 ```
 
-使用方式：
+执行：
 
-```bash
-# 方式1：使用通配符（shell不会展开）
-python3 ./merge-video.py --input "segments/racing_*.mp4" --output ./full-videos
-
-# 方式2：直接传入多个文件（shell已经展开通配符）
-python3 ./merge-video.py --input segments/racing_1.mp4 segments/racing_2.mp4 segments/racing_3.mp4 --output ./full-videos
+```BASH
+python3 auto-scp.py \
+  --input npu-level.json \
+  --source-dir ./segments \
+  --dest-dir /root/workdir/data/input-file/
 ```
 
-之后就可以根据 `input` 参数中的所有文件生成一个完整的 `racing.mp4` 到 `--output` 目录下。
-
-#### 推理 main
+#### 推理主程序
 
 ```python
 import cv2
@@ -1449,6 +1556,7 @@ import numpy as np
 import torch
 import argparse
 import os
+from glob import glob
 from skvideo.io import vreader, FFmpegWriter
 from ais_bench.infer.interface import InferSession
 
@@ -1597,16 +1705,15 @@ cfg = {
 
 def main():
     # 参数设置
-    parser = argparse.ArgumentParser(description="Process video file")
-    parser.add_argument("--input", type=str, required=True, help="Input video file path")
+    parser = argparse.ArgumentParser(description="Process video files in directory")
+    parser.add_argument("--input", type=str, required=True, help="Input directory containing video files")
     parser.add_argument("--output", type=str, required=True, help="Output directory path")
     args = parser.parse_args()
-    input_file_path = args.input
+    input_dir = args.input
     output_dir = args.output
 
-    input_filename = os.path.basename(input_file_path)
-    output_filename = f"output_{input_filename}"
-    output_file_path = os.path.join(output_dir, output_filename)
+    # 创建输出目录
+    os.makedirs(output_dir, exist_ok=True)
 
     # 模型存放位置
     model_path = 'yolo.om'
@@ -1616,16 +1723,21 @@ def main():
     model = InferSession(0, model_path)
     labels_dict = get_labels_from_txt(label_path)
 
-    # 推理
-    infer_mode = 'video'
+    # 获取目录中所有视频文件
+    video_extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']  # 支持的视频格式
+    video_files = []
+    for ext in video_extensions:
+        video_files.extend(glob(os.path.join(input_dir, ext)))
 
-    if infer_mode == 'image':
-        img_path = 'world_cpu.jpg'
-        infer_image(img_path, model, labels_dict, cfg)
-    elif infer_mode == 'camera':
-        infer_camera(model, labels_dict, cfg)
-    elif infer_mode == 'video':
+    # 处理每个视频文件
+    for input_file_path in video_files:
+        input_filename = os.path.basename(input_file_path)
+        output_filename = f"output_{input_filename}"
+        output_file_path = os.path.join(output_dir, output_filename)
+
+        print(f"Processing: {input_file_path}")
         infer_video(input_file_path, model, labels_dict, cfg, output_file_path)
+        print(f"Saved to: {output_file_path}")
 
 
 if __name__ == "__main__":
@@ -1633,36 +1745,365 @@ if __name__ == "__main__":
 
 ```
 
-之后调用的时候也是，`--input` 指定输入文件的位置，`--output` 指定输出文件所在的目录。比如：
+之后调用的时候也是，`--input` 指定输入文件的目录，`--output` 指定输出文件所在的目录。比如：
 
 ```bash
-python3 ./main.py --input /root/workdir/data/input-file/racing_1.mp4 --output /root/workdir/data/output-file/
+python3 ./main.py --input /root/workdir/data/input-file/ --output /root/workdir/data/output-file/
 ```
 
 在容器中就用：
 
 ```bash
-python3 ./main.py --input video-data/input-file/racing_1.mp4 --output video-data/output-file/
+python3 ./main.py --input video-data/input-file/ --output video-data/output-file/
 ```
 
-#### 查询设备的算力档位
-
-在 atlas 节点上直接查询：
+打包业务包：
 
 ```bash
-(base) root@atlas:~/workdir/data/output-file# npu-smi info -t nve-level -i 0 -c 0
-        nve level                      : 20T_1.6GHz
+tar zcvf yolov5.tgz coco_names.txt main.py requirements.txt yolo.om det_utils.py
 ```
 
-在 master 节点上执行如下命令可以输出 20：
+#### 调用 k8s 执行任务
+
+```python
+import json
+import datetime
+import re
+import argparse
+import subprocess
+import os
+import sys
+import time
+from kubernetes import client, config, utils
+from kubernetes.client import ApiException
+
+
+def check_jobs_complete(namespace='default'):
+    """
+    检查指定命名空间中的所有Jobs是否都已完成
+
+    :param namespace: 要检查的命名空间，如果为None则检查所有命名空间
+    :return: 如果所有Jobs都完成返回True，否则返回False
+    """
+    # 加载kube配置
+    try:
+        config.load_kube_config()  # 用于本地开发环境
+    except:
+        config.load_incluster_config()  # 用于集群内部运行
+
+    batch_v1 = client.BatchV1Api()
+
+    # 获取Jobs列表
+    if namespace:
+        jobs = batch_v1.list_namespaced_job(namespace)
+    else:
+        jobs = batch_v1.list_job_for_all_namespaces()
+
+    all_complete = True
+
+    for job in jobs.items:
+        job_name = job.metadata.name
+        namespace = job.metadata.namespace
+
+        # 检查Job的状态
+        if job.status.succeeded is None or job.status.succeeded < job.spec.completions:
+            print(f"Job {namespace}/{job_name} is not complete (succeeded: {job.status.succeeded or 0}/{job.spec.completions})")
+            all_complete = False
+        else:
+            print(f"Job {namespace}/{job_name} is complete")
+
+    return all_complete
+
+# 等价于 kubectl delete -f ${filename}
+def delete_k8s_resource(filename):
+    """
+    使用kubectl delete -f命令删除指定的Kubernetes资源文件。
+    """
+    # 构建命令参数列表（避免shell注入）
+    command = ['kubectl', 'delete', '-f', filename]
+
+    # 执行命令并检查结果
+    subprocess.run(command, check=True)
+
+
+def monitor_jobs_and_delete_file(namespace, filename, interval):
+    """
+    持续监测Jobs直到完成，然后删除指定文件
+
+    :param namespace: 要监测的命名空间
+    :param filename: 要删除的文件名
+    :param interval: 检查间隔时间(秒)
+    """
+    print(f"开始监测Jobs，完成后将删除文件: {filename}")
+
+    while True:
+        try:
+            if check_jobs_complete(namespace):
+                print("所有Jobs已完成，准备删除文件...")
+                delete_k8s_resource(filename)
+                try:
+                    os.remove(filename)
+                    print(f"文件 {filename} 已成功删除")
+                except FileNotFoundError:
+                    print(f"文件 {filename} 不存在，无需删除")
+                except Exception as e:
+                    print(f"删除文件时出错: {str(e)}")
+                break
+            else:
+                print(f"Jobs未全部完成，等待...")
+                time.sleep(interval)
+        except Exception as e:
+            print(f"监测Jobs时出错: {str(e)}")
+            print(f"等待{interval}秒后重试...")
+            time.sleep(interval)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Generate Kubernetes jobs with unique names')
+    parser.add_argument('--json', type=str, required=True, help='NPU levels JSON config path')
+    parser.add_argument('--yaml', type=str, required=True, help='Original YAML template path')
+    args = parser.parse_args()
+
+    # 文件验证
+    for path in [args.json, args.yaml]:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"File not found: {path}")
+
+    # 读取配置
+    with open(args.json, 'r') as f:
+        nodes = json.load(f).keys()
+
+    with open(args.yaml, 'r') as f:
+        yaml_template = f.read()
+
+    # 生成带编号的配置
+    job_sections = []
+    for i, node in enumerate(nodes, 1):
+        # 同时替换nodeName和metadata.name
+        modified = yaml_template
+        modified = re.sub(
+            r'^(\s*name:\s*)(\S+)$',
+            rf'\1\2-{i}',  # 在原有名称后添加编号
+            modified,
+            flags=re.MULTILINE,
+            count=1  # 只替换第一个匹配项（metadata部分）
+        )
+        modified = re.sub(
+            r'nodeName:\s*\S+',
+            f'nodeName: {node}',
+            modified
+        )
+        job_sections.append(modified)
+
+    # 生成文件名并写入
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    output_file = f"ascend-infer-job-{timestamp}.yaml"
+    with open(output_file, 'w') as f:
+        f.write('\n---\n'.join(job_sections))
+
+    # 执行kubectl
+    kubectl_cmd = ['kubectl', 'apply', '-f', output_file]
+    result = subprocess.run(kubectl_cmd, check=True, capture_output=True, text=True)
+
+    print(f"Successfully applied jobs:\n{result.stdout}")
+
+    # 检查 jobs 是否完成
+    namespace = 'default'
+    monitor_jobs_and_delete_file(namespace, output_file, 5)
+
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+让 k8s 启动 pod 去执行任务，并且执行完任务之后清理文件、Job 等资源。
+
+调用方式：
 
 ```bash
-ssh atlas 'npu-smi info -t nve-level -i 0 -c 0 | awk "/nve level/ {print \$4}" | cut -d"T" -f1'
+python3 patch-k8s.py     --json ./npu-levels.json     --yaml ./ascend-infer-job.yaml
+```
+
+#### merge_video
+
+```python
+import argparse
+import os
+import glob
+import cv2
+import sys
+import json
+import subprocess
+
+def collect_results():
+    # 创建segments目录（如果不存在）
+    os.makedirs("segments", exist_ok=True)
+
+    # 读取JSON文件
+    with open("npu-levels.json", "r") as f:
+        data = json.load(f)
+
+    # 遍历每个节点
+    for node in data:
+        filename = data[node]["filename"]
+        remote_file = f"{node}:/root/workdir/data/output-file/output_{filename}"
+        local_dir = "segments/"
+
+        # 构造SCP命令
+        command = ["scp", remote_file, local_dir]
+
+        print(f"正在复制 {remote_file} 到 segments...")
+        try:
+            # 执行SCP命令
+            subprocess.run(command, check=True)
+            print(f"成功复制 {remote_file}")
+        except subprocess.CalledProcessError as e:
+            print(f"错误：复制 {remote_file} 失败，错误信息：{str(e)}")
+
+def merge_videos(input_pattern, output_dir):
+    """
+    合并多个视频片段为一个完整视频
+
+    参数:
+        input_pattern: 输入视频的通配符模式（如 "racing_*.mp4"）
+        output_dir: 合并后的输出目录
+    """
+    # 如果传入的是多个文件（shell已经展开通配符），则直接使用这些文件
+    if isinstance(input_pattern, list):
+        input_files = sorted(input_pattern)
+    else:
+        input_files = sorted(glob.glob(input_pattern))
+
+    if not input_files:
+        raise ValueError(f"没有找到匹配的视频文件")
+
+    print(f"找到 {len(input_files)} 个视频片段:")
+    for f in input_files:
+        print(f"  {f}")
+
+    # 从输入文件名中提取基础文件名
+    first_file = input_files[0]
+    base_name = os.path.basename(first_file)
+    if '_' in base_name:
+        base_name = base_name.split('_')[0] + '.mp4'
+    else:
+        base_name = 'merged_' + base_name
+
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, base_name)
+
+    # 读取第一个视频获取参数
+    sample = cv2.VideoCapture(first_file)
+    fps = sample.get(cv2.CAP_PROP_FPS)
+    width = int(sample.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(sample.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    codec = cv2.VideoWriter_fourcc(*'mp4v')
+    sample.release()
+
+    # 创建输出视频写入器
+    out = cv2.VideoWriter(output_path, codec, fps, (width, height))
+
+    # 逐个读取并写入视频片段
+    for input_file in input_files:
+        print(f"正在处理: {input_file}")
+        cap = cv2.VideoCapture(input_file)
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            out.write(frame)
+
+        cap.release()
+
+    out.release()
+    print(f"\n视频合并完成: {output_path}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="合并多个视频片段为一个完整视频")
+    parser.add_argument("--input", required=True, nargs='+',
+                       help="输入视频的通配符模式或文件列表（如 segments/racing_*.mp4）")
+    parser.add_argument("--output", required=True,
+                       help="合并后的输出目录")
+
+    args = parser.parse_args()
+
+    collect_results()
+
+    try:
+        # 如果只有一个输入参数且包含通配符，则尝试展开
+        if len(args.input) == 1 and ('*' in args.input[0] or '?' in args.input[0]):
+            merge_videos(args.input[0], args.output)
+        else:
+            merge_videos(args.input, args.output)
+    except Exception as e:
+        print(f"错误: {e}")
+        sys.exit(1)
+
+```
+
+使用方式：
+
+```bash
+# 方式1：使用通配符（shell不会展开）
+python3 ./merge-video.py --input "segments/output_racing_*.mp4" --output ./full-videos
+
+# 方式2：直接传入多个文件（shell已经展开通配符）
+python3 ./merge-video.py --input segments/racing_1.mp4 segments/racing_2.mp4 segments/racing_3.mp4 --output ./full-videos
+```
+
+之后就可以根据 `input` 参数中的所有文件生成一个完整的 `racing.mp4` 到 `--output` 目录下。
+
+#### 总体的 run.sh
+
+```bash
+#!/bin/bash
+
+# 获取节点的名称和算力的对应信息，并保存为 npu-levels.json 文件
+bash generate-npu-levels.sh
+
+# 切分视频
+python3 ./split-video.py --input full-videos/racing.mp4 --output ./segments/ --npu-json npu-levels.json
+
+# 将要处理的视频分发给工作节点的 /root/workdir/data/input-file 目录
+python3 auto-scp.py \
+  --input npu-levels.json \
+  --source-dir ./segments \
+  --dest-dir /root/workdir/data/input-file/
+
+# 让 k8s 启动 pod 去执行任务，并且执行完任务之后清理文件、Job
+python3 patch-k8s.py --json ./npu-levels.json --yaml ./ascend-infer-job.yaml
+
+# 收集结果，并将结果进行合并
+python3 ./merge-video.py --input "segments/output_racing_*.mp4" --output ./full-videos
+```
+
+目录树：
+
+```python
+.
+├── ascend-infer-job.yaml
+├── auto-scp.py
+├── full-videos
+│   └── racing.mp4
+├── generate-npu-levels.sh
+├── merge-video.py
+├── npu-levels.json
+├── patch-k8s.py
+├── run.sh
+├── segments
+├── split-video.py
+└── test.py
 ```
 
 
 
 
+
+待办：将 merge-video 修改，产生的文件名字根据 json 文件自动决定。
 
 
 

@@ -599,114 +599,435 @@ func decompressRLElist(nums []int) []int {
 }
 ```
 
+## 261. 将整数转换为两个无零整数的和（1317）
 
+「无零整数」是十进制表示中 **不含任何 0** 的正整数。
 
+给你一个整数 `n`，请你返回一个 **由两个整数组成的列表** `[a, b]`，满足：
 
+- `a` 和 `b` 都是无零整数
+- `a + b = n`
 
+题目数据保证至少有一个有效的解决方案。
 
+如果存在多个有效解决方案，你可以返回其中任意一个。
 
+```go
+func isValid(num int) bool {
+    if num == 0 {
+        return false
+    }
+    for num != 0 {
+        if num % 10 == 0 {
+            return false
+        }
+        num = num / 10
+    }
+    return true
+}
 
-
-
-
-
-
-待做题目：
-
-```bash
-1317. 将整数转换为两个无零整数的和
-292
-62.7%
-简单
-1323. 6 和 9 组成的最大数字
-736
-75.5%
-简单
-1331. 数组序号转换
-566
-60.5%
-简单
-1332. 删除回文子序列
-399
-78.1%
-简单
-1337. 矩阵中战斗力最弱的 K 行
-981
-68.6%
-简单
-1342. 将数字变成 0 的操作次数
-1855
-75.4%
-简单
-1346. 检查整数及其两倍数是否存在
-619
-41.9%
-简单
-1351. 统计有序矩阵中的负数
-908
-74.8%
-简单
-1356. 根据数字二进制下 1 的数目排序
-756
-74.6%
-简单
-1360. 日期之间隔几天
-280
-52.6%
-简单
-1365. 有多少小于当前数字的数字
-1436
-82.4%
-简单
-1370. 上升下降字符串
-691
-79.0%
-简单
-1374. 生成每种字符都是奇数个的字符串
-574
-77.9%
-简单
-1379. 找出克隆二叉树中的相同节点
-359
-85.5%
-简单
-1380. 矩阵中的幸运数
-792
-76.0%
-简单
-1385. 两个数组间的距离值
-656
-66.1%
-简单
-1389. 按既定顺序创建目标数组
-620
-82.7%
-简单
-1394. 找出数组中的幸运数
-498
-67.5%
-简单
-1399. 统计最大组的数目
-239
-66.6%
-简单
-1403. 非递增顺序的最小子序列
-802
-73.6%
-简单
-1408. 数组中的字符串匹配
-600
-64.4%
-简单
-1413. 逐步求和得到正数的最小值
-759
-73.3%
-简单
-1417. 重新格式化字符串
-660
-54.9%
-简单
+func getNoZeroIntegers(n int) []int {
+    for left := 1; left < n; left++ {
+        right := n - left
+        // 检测 left 和 right 是不是无零整数
+        if isValid(left) && isValid(right) {
+            return []int{left, right}
+        }
+    }
+    return []int{-1, -1}
+}
 ```
+
+## 262. 6和9组成的最大数字（1323）
+
+给你一个仅由数字 6 和 9 组成的正整数 `num`。
+
+你最多只能翻转一位数字，将 6 变成 9，或者把 9 变成 6 。
+
+请返回你可以得到的最大数字。
+
+```go
+func maximum69Number (num int) int {
+    // 将 6 变成 9
+    arr := make([]int, 0)
+    for num != 0 {
+        arr = append(arr, num % 10)
+        num /= 10
+    }
+
+    for i := len(arr) - 1; i >= 0; i-- {
+        if arr[i] == 6 {
+            arr[i] = 9
+            break
+        }
+    }
+
+    res := 0
+    for i := len(arr) - 1; i >= 0; i-- {
+        res = res * 10 + arr[i]
+    }
+
+    return res
+}
+```
+
+## 263. 数组序号转换（1331）
+
+给你一个整数数组 `arr` ，请你将数组中的每个元素替换为它们排序后的序号。
+
+序号代表了一个元素有多大。序号编号的规则如下：
+
+- 序号从 1 开始编号。
+- 一个元素越大，那么序号越大。如果两个元素相等，那么它们的序号相同。
+- 每个数字的序号都应该尽可能地小。
+
+```go
+func arrayRankTransform(arr []int) []int {
+    sorted := make([]int, len(arr))
+    copy(sorted, arr)
+    sort.Ints(sorted)
+
+    numPosMap := make(map[int]int)
+    pos := 1
+    for i, num := range sorted {
+        if i - 1 >= 0 && sorted[i - 1] == sorted[i] {
+            continue
+        }
+        numPosMap[num] = pos
+        pos++
+    }
+
+    res := make([]int, len(arr))
+    for i, num := range arr {
+        res[i] = numPosMap[num]
+    }
+
+    return res
+}
+```
+
+## 264. 矩阵中战斗力最弱的 K 行（1337）
+
+给你一个大小为 `m * n` 的矩阵 `mat`，矩阵由若干军人和平民组成，分别用 1 和 0 表示。
+
+请你返回矩阵中战斗力最弱的 `k` 行的索引，按从最弱到最强排序。
+
+如果第 ***i*** 行的军人数量少于第 ***j*** 行，或者两行军人数量相同但 ***i*** 小于 ***j***，那么我们认为第 ***i*** 行的战斗力比第 ***j*** 行弱。
+
+军人 **总是** 排在一行中的靠前位置，也就是说 1 总是出现在 0 之前。
+
+```go
+func kWeakestRows(mat [][]int, k int) []int {
+    res := make([]int, 0)
+
+    resSet := make(map[int]struct{})
+
+    for j := 0; k > 0 && j < len(mat[0]); j++ {
+        for i := 0; k > 0 && i < len(mat); i++ {
+            if _, ok := resSet[i]; ok {
+                continue
+            }
+            if mat[i][j] == 0 {
+                res = append(res, i)
+                resSet[i] = struct{}{}
+                k--
+            }
+        }
+    }
+
+    if k > 0 {
+        for i := 0; k > 0 && i < len(mat); i++ {
+            if _, ok := resSet[i]; !ok {
+                res = append(res, i)
+                resSet[i] = struct{}{}
+                k--
+            }
+        }
+    }
+
+    return res
+}
+```
+
+## 265. 将数字变成 0 的操作次数（1342）
+
+```go
+func numberOfSteps(num int) int {
+    res := 0
+    for num != 0 {
+        if num & 1 == 1 {
+            num -= 1
+        } else {
+            num /= 2
+        }
+        res++
+    }
+
+    return res
+}
+```
+
+## 266. 检查整数及其两倍数是否存在（1346）
+
+给你一个整数数组 `arr`，请你检查是否存在两个整数 `N` 和 `M`，满足 `N` 是 `M` 的两倍（即，`N = 2 * M`）。
+
+更正式地，检查是否存在两个下标 `i` 和 `j` 满足：
+
+- `i != j`
+- `0 <= i, j < arr.length`
+- `arr[i] == 2 * arr[j]`
+
+```go
+func checkIfExist(arr []int) bool {
+	numSet := make(map[int]struct{})
+
+	for _, num := range arr {
+		if _, ok := numSet[num/2]; ok && (num%2 == 0) {
+			return true
+		}
+		if _, ok := numSet[num*2]; ok {
+			return true
+		}
+		numSet[num] = struct{}{}
+	}
+
+	return false
+}
+```
+
+注意：
+
+- Go 的语法中，在一个 if 判断条件的框框中，只允许出现一个初始化语句。
+- 所以可以 `_, ok := numSet[num/2]; ok && (num%2 == 0)` 将两个条件包起来，这样是可以的，因为只有一个初始化语句。
+- 但是无法将上述代码中两个 if 再合并为一个 if 语句。因为这两个 if 语句的条件中各有一个初始化 ok 的语句。
+
+## 267. 统计有序矩阵中的负数（1351）
+
+给你一个 `m * n` 的矩阵 `grid`，矩阵中的元素无论是按行还是按列，都以非严格递减顺序排列。 请你统计并返回 `grid` 中 **负数** 的数目。
+
+```go
+func countNegatives(grid [][]int) int {
+	res := 0
+
+	m := len(grid)
+	n := len(grid[0])
+
+	// 在第一行中找第一个负数
+	left := 0
+	right := n - 1
+	for left <= right {
+		mid := left + (right-left)>>1
+		if grid[0][mid] >= 0 {
+			left = mid + 1
+		} else {
+			right = mid - 1
+		}
+	}
+	// 第一个负数就是 grid[0][left]
+	// 最后一个大于等于 0 的数就是 left - 1
+	left -= 1
+	res += n - (left + 1)
+	for i := 1; i < m; i++ {
+		for left >= 0 && grid[i][left] < 0 {
+			left--
+		}
+		res += n - (left + 1)
+	}
+
+	return res
+}
+```
+
+## 268. 根据数字二进制下 1 的数目排序（1356）
+
+如果存在多个数字二进制中 **1** 的数目相同，则必须将它们按照数值大小升序排列。
+
+请你返回排序后的数组。
+
+```go
+// 第一次写的错误的代码
+func sortByBits(arr []int) []int {
+	countOfOne := make([]int, len(arr))
+	for i, num := range arr {
+		count := 0
+		for num != 0 {
+			if num&1 == 1 {
+				count++
+			}
+			num = num >> 1
+		}
+		countOfOne[i] = count
+	}
+
+	sort.Slice(arr, func(i, j int) bool {
+		if countOfOne[i] == countOfOne[j] {
+			return arr[i] < arr[j]
+		}
+		return countOfOne[i] < countOfOne[j]
+	})
+
+	return arr
+}
+```
+
+在第一次的代码中，计算每个元素二进制中 1 的数目时，将其存储在 `countOfOne` 数组中。然而，当对原数组进行排序时，元素的顺序发生了变化，但 `countOfOne` 数组的索引仍然对应于原数组的索引。这导致在比较两个元素时，使用了错误的 1 的数目，从而导致排序结果错误。
+
+修改代码的思路：绑定元素值和 1 的关系。将每个元素与其对应的二进制中 1 的数目组合成一个结构体，确保在排序过程中数目和元素始终对应。
+
+```go
+// 正确的代码
+func sortByBits(arr []int) []int {
+	type elem struct {
+		num   int
+		count int
+	}
+
+	elems := make([]elem, len(arr))
+	for i, num := range arr {
+		count := bits.OnesCount(uint(num))
+		elems[i] = elem{num: num, count: count}
+	}
+
+	sort.Slice(elems, func(i, j int) bool {
+		if elems[i].count == elems[j].count {
+			return elems[i].num < elems[j].num
+		}
+		return elems[i].count < elems[j].count
+	})
+
+	res := make([]int, len(arr))
+	for i := range res {
+		res[i] = elems[i].num
+	}
+	return res
+}
+```
+
+## 269. 日期之间隔几天（1360）
+
+请你编写一个程序来计算两个日期之间隔了多少天。
+
+日期以字符串形式给出，格式为 `YYYY-MM-DD`，如示例所示。
+
+```go
+func daysBetweenDates(date1 string, date2 string) int {
+	isLeapYear := func(year int) bool {
+		return year%4 == 0 && (year%100 != 0 || year%400 == 0)
+	}
+
+	splits1 := strings.Split(date1, "-")
+	splits2 := strings.Split(date2, "-")
+
+	year1, _ := strconv.Atoi(splits1[0])
+	month1, _ := strconv.Atoi(splits1[1])
+	day1, _ := strconv.Atoi(splits1[2])
+	year2, _ := strconv.Atoi(splits2[0])
+	month2, _ := strconv.Atoi(splits2[1])
+	day2, _ := strconv.Atoi(splits2[2])
+
+	prefixDayOfMonth := []int{31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365}
+
+	getTimeStamp := func(year, month, day int) int {
+		res := 0
+		for i := 1971; i < year; i++ {
+			if isLeapYear(i) {
+				res += 366
+			} else {
+				res += 365
+			}
+		}
+        if month > 1 {
+            res += prefixDayOfMonth[month-2]
+        }
+		if month >= 3 && isLeapYear(year) {
+			res++
+		}
+		res += day
+		return res
+	}
+
+	Abs := func(num int) int {
+		if num < 0 {
+			return -num
+		} else {
+			return num
+		}
+	}
+
+	timeStamp1 := getTimeStamp(year1, month1, day1)
+	timeStamp2 := getTimeStamp(year2, month2, day2)
+
+	return Abs(timeStamp1 - timeStamp2)
+}
+```
+
+简洁版代码：
+
+```go
+func Abs(x int) int {
+    if x < 0 {
+        return -x
+    } else {
+        return x
+    }
+}
+
+func daysBetweenDates(date1 string, date2 string) int {
+    time1, _ := time.Parse("2006-01-02", date1)
+    time2, _ := time.Parse("2006-01-02", date2)
+    return Abs(int(time1.Sub(time2).Hours() / 24))
+}
+```
+
+- 必须使用 `2006-01-02 15:04:05` 这样的数字作为格式模板，不能替换年份或数字顺序！
+- 若输入字符串与 `layout` 的字面值不匹配（如用 `2007` 去解析 `2023`），会直接报错。
+- 这种设计是 Go 语言的刻意选择，旨在通过规范化的方式简化时间处理。
+
+## 270. 有多少小于当前数字的数字（1365）
+
+给你一个数组 `nums`，对于其中每个元素 `nums[i]`，请你统计数组中比它小的所有数字的数目。
+
+换而言之，对于每个 `nums[i]` 你必须计算出有效的 `j` 的数量，其中 `j` 满足 `j != i` **且** `nums[j] < nums[i]` 。
+
+以数组形式返回答案。
+
+```go
+func smallerNumbersThanCurrent(nums []int) []int {
+    sorted := make([]int, len(nums))
+    copy(sorted, nums)
+    sort.Ints(sorted)
+
+    // 对于每一个数字，查找这个数字在 sorted 中第一次出现的下标
+    find := func(target int) int {
+        left := 0
+        right := len(sorted) - 1
+        for left <= right {
+            mid := left + (right-left)>>1
+            if sorted[mid] >= target {
+                right = mid - 1
+            } else {
+                left = mid + 1
+            }
+        }
+        return left
+    }
+
+    res := make([]int, len(nums))
+    for i, num := range nums {
+        res[i] = find(num)
+    }
+
+    return res
+}
+```
+
+
+
+
+
+
+
+
 
 
 
