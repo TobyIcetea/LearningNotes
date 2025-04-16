@@ -1275,11 +1275,28 @@ for key in "${!levels[@]}"; do
   jq_filter+=" | .[\"$key\"] = ${levels[$key]}"
 done
 
+echo "Check All NPU Levels Down!"
+
 # 生成JSON文件
 jq -n "$jq_filter" > ${output_file}
 ```
 
-#### split_video
+将上述文件保存为 `generate-npu-levels.sh`，执行的时候直接运行：
+
+```bash
+bash generate-npu-levels.sh
+```
+
+运行结果是产生 `npu-levels.json` 文件。此时 `npu-levels.json` 文件中的内容如下：
+
+```json
+{
+  "atlas1": 8,
+  "atlas": 20
+}
+```
+
+#### 按照算力切分视频文件
 
 ```python
 import argparse
@@ -1435,10 +1452,10 @@ if __name__ == "__main__":
         print(f"错误: {e}")
 ```
 
-操作方式：
+将上述文件保存为 `split-video.py`。操作方式：
 
 ```bash
-python3 ./split-video.py     --input full-videos/racing.mp4     --output ./segments/     --npu-json npu-levels.json
+python3 ./split-video.py --input full-videos/racing.mp4 --output ./segments/ --npu-json npu-levels.json
 ```
 
 之后就可以在 `--output` 目录下生成两个文件：`racing_1.mp4` 和 `racing_2.mp4`。并且修改 json 文件为如下格式：
@@ -1539,16 +1556,13 @@ if __name__ == "__main__":
 
 ```
 
-执行：
+将上述内容保存为 `auto-scp.py`。执行：
 
 ```BASH
-python3 auto-scp.py \
-  --input npu-level.json \
-  --source-dir ./segments \
-  --dest-dir /root/workdir/data/input-file/
+python3 auto-scp.py --input npu-levels.json --source-dir ./segments  --dest-dir /root/workdir/data/input-file/
 ```
 
-#### 推理主程序
+#### 推理主程序（镜像部分）
 
 ```python
 import cv2
@@ -1763,6 +1777,281 @@ python3 ./main.py --input video-data/input-file/ --output video-data/output-file
 tar zcvf yolov5.tgz coco_names.txt main.py requirements.txt yolo.om det_utils.py
 ```
 
+#### k8s infer-job 声明文件
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ascend-infer-job
+spec:
+  template:
+    metadata:
+      labels:
+        app: ascend-infer-job
+    spec:
+      nodeName: atlas1
+      hostNetwork: true  # 相当于 --network host
+      hostPID: true  # 相当于 --pid=host
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+      - name: ascend-infer
+        image: ascend-infer:0411
+        imagePullPolicy: Never
+        # command: ["/bin/bash", "-c", "sleep infinity"]  # 无限睡眠
+        securityContext:
+          privileged: true  # 可能需要特权模式来访问设备
+        volumeMounts:
+        - name: video-data
+          mountPath: /home/AscendWork/video-data/
+        - name: sys-version
+          mountPath: /etc/sys_version.conf
+          readOnly: true
+        - name: hdc-basic
+          mountPath: /etc/hdcBasic.cfg
+          readOnly: true
+        - name: libaicpu-processer
+          mountPath: /usr/lib64/libaicpu_processer.so
+          readOnly: true
+        - name: libaicpu-prof
+          mountPath: /usr/lib64/libaicpu_prof.so
+          readOnly: true
+        - name: libaicpu-sharder
+          mountPath: /usr/lib64/libaicpu_sharder.so
+          readOnly: true
+        - name: libadump
+          mountPath: /usr/lib64/libadump.so
+          readOnly: true
+        - name: libtsd-eventclient
+          mountPath: /usr/lib64/libtsd_eventclient.so
+          readOnly: true
+        - name: libaicpu-scheduler
+          mountPath: /usr/lib64/libaicpu_scheduler.so
+          readOnly: true
+        - name: libcrypto
+          mountPath: /usr/lib64/libcrypto.so.1.1
+          readOnly: true
+        - name: libyaml
+          mountPath: /usr/lib64/libyaml-0.so.2
+          readOnly: true
+        - name: libdcmi
+          mountPath: /usr/lib64/libdcmi.so
+          readOnly: true
+        - name: libmpi-dvpp-adapter
+          mountPath: /usr/lib64/libmpi_dvpp_adapter.so
+          readOnly: true
+        - name: aicpu-kernels
+          mountPath: /usr/lib64/aicpu_kernels/
+          readOnly: true
+        - name: npu-smi
+          mountPath: /usr/local/sbin/npu-smi
+          readOnly: true
+        - name: libstackcore
+          mountPath: /usr/lib64/libstackcore.so
+          readOnly: true
+        - name: libunified-timer
+          mountPath: /usr/lib64/libunified_timer.so
+        - name: libdp
+          mountPath: /usr/lib64/libdp.so
+        - name: libtensorflow
+          mountPath: /usr/lib64/libtensorflow.so
+        - name: ascend-driver-lib64
+          mountPath: /usr/local/Ascend/driver/lib64
+          readOnly: true
+        - name: slogd
+          mountPath: /var/slogd
+          readOnly: true
+        - name: dmp-daemon
+          mountPath: /var/dmp_daemon
+          readOnly: true
+# 从这里分开挂载-----------------------------------
+        - name: upgrade
+          mountPath: /dev/upgrade
+        - name: davinci0
+          mountPath: /dev/devinci0
+        - name: davinci-manager
+          mountPath: /dev/davinci_manager
+        - name: vdec
+          mountPath: /dev/vdec
+        - name: vpc
+          mountPath: /dev/vpc
+        - name: pngd
+          mountPath: /dev/pngd
+        - name: venc
+          mountPath: /dev/venc
+        - name: sys
+          mountPath: /dev/sys
+        - name: svm0
+          mountPath: /dev/svm0
+        - name: acodec
+          mountPath: /dev/acodec
+        - name: ai
+          mountPath: /dev/ai
+        - name: ao
+          mountPath: /dev/ao
+        - name: hdmi
+          mountPath: /dev/hdmi
+        - name: ts-aisle
+          mountPath: /dev/ts_aisle
+        - name: dvpp-cmdlist
+          mountPath: /dev/dvpp_cmdlist
+      volumes:
+      - name: video-data
+        hostPath:
+          path: /root/workdir/data/
+          type: Directory  # 目录
+      - name: sys-version
+        hostPath:
+          path: /etc/sys_version.conf
+          type: File  # 明确指定为文件类型
+      - name: hdc-basic
+        hostPath:
+          path: /etc/hdcBasic.cfg
+          type: File
+      - name: libaicpu-processer
+        hostPath:
+          path: /usr/lib64/libaicpu_processer.so
+          type: File
+      - name: libaicpu-prof
+        hostPath:
+          path: /usr/lib64/libaicpu_prof.so
+          type: File
+      - name: libaicpu-sharder
+        hostPath:
+          path: /usr/lib64/libaicpu_sharder.so
+          type: File
+      - name: libadump
+        hostPath:
+          path: /usr/lib64/libadump.so
+          type: File
+      - name: libtsd-eventclient
+        hostPath:
+          path: /usr/lib64/libtsd_eventclient.so
+          type: File
+      - name: libaicpu-scheduler
+        hostPath:
+          path: /usr/lib64/libaicpu_scheduler.so
+          type: File
+      - name: libcrypto
+        hostPath:
+          path: /usr/lib/aarch64-linux-gnu/libcrypto.so.1.1
+          type: File
+      - name: libyaml
+        hostPath:
+          path: /usr/lib/aarch64-linux-gnu/libyaml-0.so.2.0.6
+          type: File
+      - name: libdcmi
+        hostPath:
+          path: /usr/lib64/libdcmi.so
+          type: File
+      - name: libmpi-dvpp-adapter
+        hostPath:
+          path: /usr/lib64/libmpi_dvpp_adapter.so
+          type: File
+      - name: aicpu-kernels
+        hostPath:
+          path: /usr/lib64/aicpu_kernels/
+          type: Directory  # 指定为目录类型
+      - name: npu-smi
+        hostPath:
+          path: /usr/local/sbin/npu-smi
+          type: File
+      - name: libstackcore
+        hostPath:
+          path: /usr/lib64/libstackcore.so
+          type: File
+      - name: libunified-timer
+        hostPath:
+          path: /usr/lib64/libunified_timer.so
+          type: Directory
+      - name: libdp
+        hostPath:
+          path: /usr/lib64/libdp.so
+          type: File
+      - name: libtensorflow
+        hostPath:
+          path: /usr/lib64/libtensorflow.so
+          type: File
+      - name: ascend-driver-lib64
+        hostPath:
+          path: /usr/local/Ascend/driver/lib64
+          type: Directory
+      - name: slogd
+        hostPath:
+          path: /var/slogd
+          type: File
+      - name: dmp-daemon
+        hostPath:
+          path: /var/dmp_daemon
+          type: File
+# 从这里分开挂载--------------------------
+      - name: upgrade
+        hostPath:
+          path: /dev/upgrade
+          type: CharDevice  # 指定为字符设备
+      - name: davinci0
+        hostPath:
+          path: /dev/davinci0
+          type: CharDevice
+      - name: davinci-manager
+        hostPath:
+          path: /dev/davinci_manager_docker  # 注意源路径不同
+          type: CharDevice
+      - name: vdec
+        hostPath:
+          path: /dev/vdec
+          type: CharDevice
+      - name: vpc
+        hostPath:
+          path: /dev/vpc
+          type: CharDevice
+      - name: pngd
+        hostPath:
+          path: /dev/pngd
+          type: CharDevice
+      - name: venc
+        hostPath:
+          path: /dev/venc
+          type: CharDevice
+      - name: sys
+        hostPath:
+          path: /dev/sys
+          type: CharDevice
+      - name: svm0
+        hostPath:
+          path: /dev/svm0
+          type: CharDevice
+      - name: acodec
+        hostPath:
+          path: /dev/acodec
+          type: CharDevice
+      - name: ai
+        hostPath:
+          path: /dev/ai
+          type: CharDevice
+      - name: ao
+        hostPath:
+          path: /dev/ao
+          type: CharDevice
+      - name: hdmi
+        hostPath:
+          path: /dev/hdmi
+          type: CharDevice
+      - name: ts-aisle
+        hostPath:
+          path: /dev/ts_aisle
+          type: CharDevice
+      - name: dvpp-cmdlist
+        hostPath:
+          path: /dev/dvpp_cmdlist
+          type: CharDevice
+      restartPolicy: Never  # Job 必须设置为 Never 或 OnFailure
+```
+
+将上述文件保存为 `ascend-infer-job.yaml`。
+
 #### 调用 k8s 执行任务
 
 ```python
@@ -1920,13 +2209,13 @@ if __name__ == "__main__":
 
 让 k8s 启动 pod 去执行任务，并且执行完任务之后清理文件、Job 等资源。
 
-调用方式：
+将上述内容保存为 `patch-k8s.py`。调用方式：
 
 ```bash
-python3 patch-k8s.py     --json ./npu-levels.json     --yaml ./ascend-infer-job.yaml
+python3 patch-k8s.py --json ./npu-levels.json --yaml ./ascend-infer-job.yaml
 ```
 
-#### merge_video
+#### 收集并合并视频
 
 ```python
 import argparse
@@ -1937,12 +2226,12 @@ import sys
 import json
 import subprocess
 
-def collect_results():
+def collect_results(json_file_path):
     # 创建segments目录（如果不存在）
     os.makedirs("segments", exist_ok=True)
 
     # 读取JSON文件
-    with open("npu-levels.json", "r") as f:
+    with open(json_file_path, "r") as f:
         data = json.load(f)
 
     # 遍历每个节点
@@ -1962,38 +2251,33 @@ def collect_results():
         except subprocess.CalledProcessError as e:
             print(f"错误：复制 {remote_file} 失败，错误信息：{str(e)}")
 
-def merge_videos(input_pattern, output_dir):
+def merge_videos(input_files, output_dir):
     """
     合并多个视频片段为一个完整视频
 
     参数:
-        input_pattern: 输入视频的通配符模式（如 "racing_*.mp4"）
+        input_files: 输入视频文件列表
         output_dir: 合并后的输出目录
     """
-    # 如果传入的是多个文件（shell已经展开通配符），则直接使用这些文件
-    if isinstance(input_pattern, list):
-        input_files = sorted(input_pattern)
-    else:
-        input_files = sorted(glob.glob(input_pattern))
-
     if not input_files:
-        raise ValueError(f"没有找到匹配的视频文件")
+        raise ValueError("没有找到任何视频文件")
 
     print(f"找到 {len(input_files)} 个视频片段:")
     for f in input_files:
         print(f"  {f}")
 
-    # 从输入文件名中提取基础文件名
+    # 生成输出文件名
     first_file = input_files[0]
-    base_name = os.path.basename(first_file)
+    base_name = os.path.basename(first_file).replace('output_', '', 1)
     if '_' in base_name:
-        base_name = base_name.split('_')[0] + '.mp4'
+        base_part = base_name.split('_')[0]
+        output_filename = f"{base_part}_output.mp4"
     else:
-        base_name = 'merged_' + base_name
+        output_filename = 'output_' + base_name
 
     # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, base_name)
+    output_path = os.path.join(output_dir, output_filename)
 
     # 读取第一个视频获取参数
     sample = cv2.VideoCapture(first_file)
@@ -2024,38 +2308,46 @@ def merge_videos(input_pattern, output_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="合并多个视频片段为一个完整视频")
-    parser.add_argument("--input", required=True, nargs='+',
-                       help="输入视频的通配符模式或文件列表（如 segments/racing_*.mp4）")
-    parser.add_argument("--output", required=True,
-                       help="合并后的输出目录")
+    parser.add_argument("--input-dir", required=True, help="输入目录路径")
+    parser.add_argument("--json", required=True, help="JSON配置文件路径")
+    parser.add_argument("--output-dir", required=True, help="合并后的输出目录")
 
     args = parser.parse_args()
 
-    collect_results()
+    collect_results(args.json)
+
+    # 读取JSON配置
+    with open(args.json, "r") as f:
+        data = json.load(f)
+
+    # 收集输入文件列表
+    input_files = []
+    for node in data:
+        filename = data[node]["filename"]
+        file_path = os.path.join(args.input_dir, f"output_{filename}")
+        if not os.path.exists(file_path):
+            print(f"警告：文件 {file_path} 不存在，跳过")
+            continue
+        input_files.append(file_path)
+
+    if not input_files:
+        raise ValueError("没有找到任何有效输入文件")
 
     try:
-        # 如果只有一个输入参数且包含通配符，则尝试展开
-        if len(args.input) == 1 and ('*' in args.input[0] or '?' in args.input[0]):
-            merge_videos(args.input[0], args.output)
-        else:
-            merge_videos(args.input, args.output)
+        merge_videos(input_files, args.output_dir)
     except Exception as e:
         print(f"错误: {e}")
         sys.exit(1)
 
 ```
 
-使用方式：
+将上述文件保存为 `collect_and_merge_video.py`。使用方式：
 
 ```bash
-# 方式1：使用通配符（shell不会展开）
-python3 ./merge-video.py --input "segments/output_racing_*.mp4" --output ./full-videos
-
-# 方式2：直接传入多个文件（shell已经展开通配符）
-python3 ./merge-video.py --input segments/racing_1.mp4 segments/racing_2.mp4 segments/racing_3.mp4 --output ./full-videos
+python3 collect_and_merge_video.py --input-dir ./segments/ --json npu-levels.json --output-dir ./full-videos
 ```
 
-之后就可以根据 `input` 参数中的所有文件生成一个完整的 `racing.mp4` 到 `--output` 目录下。
+之后就可以根据 `input-dir` 和 `json` 参数中指定的所有文件生成一个完整的 `output_racing.mp4` 到 `--output-dir` 目录下。
 
 #### 总体的 run.sh
 
@@ -2066,7 +2358,7 @@ python3 ./merge-video.py --input segments/racing_1.mp4 segments/racing_2.mp4 seg
 bash generate-npu-levels.sh
 
 # 切分视频
-python3 ./split-video.py --input full-videos/racing.mp4 --output ./segments/ --npu-json npu-levels.json
+python3 ./split-video.py     --input full-videos/racing.mp4     --output ./segments/     --npu-json npu-levels.json
 
 # 将要处理的视频分发给工作节点的 /root/workdir/data/input-file 目录
 python3 auto-scp.py \
@@ -2075,35 +2367,59 @@ python3 auto-scp.py \
   --dest-dir /root/workdir/data/input-file/
 
 # 让 k8s 启动 pod 去执行任务，并且执行完任务之后清理文件、Job
-python3 patch-k8s.py --json ./npu-levels.json --yaml ./ascend-infer-job.yaml
+python3 patch-k8s.py     --json ./npu-levels.json     --yaml ./ascend-infer-job.yaml
 
 # 收集结果，并将结果进行合并
-python3 ./merge-video.py --input "segments/output_racing_*.mp4" --output ./full-videos
+python3 collect_and_merge_video.py --input-dir ./segments/ --json npu-levels.json --output-dir ./full-videos
+
 ```
 
-目录树：
+初始目录树：
 
 ```python
 .
 ├── ascend-infer-job.yaml
 ├── auto-scp.py
+├── collect_and_merge_video.py
 ├── full-videos
 │   └── racing.mp4
 ├── generate-npu-levels.sh
-├── merge-video.py
 ├── npu-levels.json
 ├── patch-k8s.py
 ├── run.sh
 ├── segments
-├── split-video.py
-└── test.py
+└── split-video.py
 ```
 
+运行 `bash run.sh` 之后的目录树：
+
+```python
+.
+├── ascend-infer-job.yaml
+├── auto-scp.py
+├── collect_and_merge_video.py
+├── full-videos
+│   ├── racing.mp4
+│   └── racing_output.mp4
+├── generate-npu-levels.sh
+├── npu-levels.json
+├── patch-k8s.py
+├── run.sh
+├── segments
+│   ├── output_racing_1.mp4
+│   ├── output_racing_2.mp4
+│   ├── racing_1.mp4
+│   └── racing_2.mp4
+└── split-video.py
+```
+
+后序，如果要处理其他的视频文件，只需要更改 `run.sh` 中的 `--input full-videos/racing.mp4` 中的 `racing.mp4` 为其他的视频文件即可。
 
 
 
 
-待办：将 merge-video 修改，产生的文件名字根据 json 文件自动决定。
+
+
 
 
 
