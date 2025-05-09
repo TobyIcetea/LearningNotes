@@ -106,21 +106,6 @@ Uncompressing ascend-docker-runtime  100%
 ./Ascend-docker-runtime_6.0.0_linux-aarch64.run --uninstall
 ```
 
-### 一个小问题
-
-今天发现在 Docker 容器中，容器无法执行 npu-smi 命令，因为运行库不全。我们在容器中使用 `ldd` 命令查询一下所需的运行时库，发现：
-
-```bash
-root@dfcc4c5ff4fd:/# ldd /usr/local/sbin/npu-smi
-        linux-vdso.so.1 (0x0000e7ffd8cc0000)
-        libc_sec.so => /usr/local/Ascend/driver/lib64/libc_sec.so (0x0000e7ffd8a60000)
-        libdevmmap.so => /usr/local/Ascend/driver/lib64/libdevmmap.so (0x0000e7ffd8a40000)
-        libdrvdsmi.so => /usr/local/Ascend/driver/lib64/libdrvdsmi.so (0x0000e7ffd89c0000)
-        libslog.so => /usr/local/Ascend/driver/lib64/libslog.so (0x0000e7ffd89a0000)
-        libmmpa.so => not found
-        。。。。。。
-```
-
 ## 2. containerd 中运行容器
 
 以 busybox 容器举例，首先要确保镜像列表中有 busybox：

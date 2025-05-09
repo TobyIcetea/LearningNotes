@@ -22,7 +22,7 @@ python -m venv venv
 source venv/bin/activate
 
 # 如果要退出
-deativate
+deactivate
 ```
 
 导出项目实际使用的包：
@@ -96,6 +96,31 @@ EOF
 global.index-url='https://pypi.tuna.tsinghua.edu.cn/simple'
 install.trusted-host='https://pypi.tuna.tsinghua.edu.cn'
 ```
+
+## 4. Anaconda 使用国内源
+
+（Windows、Linux 通用）
+
+在 `~/.condarc` 文件中写入如下内容：
+
+（Windows 先执行：`conda config --set show_channel_urls yes`）
+
+（Windows 后面这个文件的生效位置好像成了 Conda 的安装位置中的此文件）
+
+```yaml
+channels:
+  - defaults
+show_channel_urls: true
+default_channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/msys2
+custom_channels:
+  conda-forge: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+  pytorch: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+```
+
+
 
 
 
