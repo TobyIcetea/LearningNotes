@@ -1,4 +1,4 @@
-# Linux 命令
+# Linux 操作
 
 ## 1. vim 配置
 
@@ -193,7 +193,7 @@ grub2-mkconfig -o /boot/grub/grub.cfg
 ```bash
 vim /etc/profile
 ----------------------------------------
-FLCLASH_IP="10.198.60.212"  # 这里填写自己的 windows 主机的 ip 地址
+FLCLASH_IP="10.198.4.136"  # 这里填写自己的 windows 主机的 ip 地址
 export http_proxy="http://${FLCLASH_IP}:7890"
 export https_proxy="http://${FLCLASH_IP}:7890"
 export ftp_proxy="http://${FLCLASH_IP}:7890"
@@ -244,7 +244,7 @@ timestamp=1741401629
 [ipv4]
 address=192.168.100.101/24
 dns=8.8.8.8;8.8.4.4;
-gateway=192.168.100.2
+gateway=192.168.100.2  # Vmware 中默认的网关必须是这个
 ignore-auto-dns=true
 method=manual
 

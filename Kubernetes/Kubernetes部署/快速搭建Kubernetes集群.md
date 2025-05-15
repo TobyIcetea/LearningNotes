@@ -163,7 +163,7 @@ node节点：   node2
     nf_conntrack_ipv4
     EOF
     
-    # 查看对应的模块是否加载成功
+    # 重启之后查看对应的模块是否加载成功
     lsmod | grep -e ip_vs -e nf_conntrack
     ```
     
@@ -223,7 +223,7 @@ EOF
 
 # 加载配置、启动
 systemctl daemon-reload
-systemctl enable containerd
+systemctl enable --now containerd
 
 ```
 
@@ -476,8 +476,7 @@ KUBE_PROXY_MODE="ipvs"
 EOF
 
 # 设置 kubelet 开机自启动
-systemctl start kubelet
-systemctl enable kubelet
+systemctl enable --now kubelet
 ```
 
 如果是 Ubuntu，使用下面的安装方法：

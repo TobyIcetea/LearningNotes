@@ -278,116 +278,66 @@ CMD ["bash", "/home/AscendWork/run.sh"]
 
 ## 13. A2 部署 TransVG
 
-### 创建环境
-
-环境要求如下：
-
-- Python 3.6 (3.5 tested)
-- Pytorch 0.4.1 and 1.4.0 tested (other versions in between should work)
-- Others ([Pytorch-Bert](https://pypi.org/project/pytorch-pretrained-bert/), etc.) Check requirements.txt for reference.
-
-但是 torch-npu 的插件并不能支持到这里：
-
-| PyTorch版本   | Python版本                                                   |
-| ------------- | ------------------------------------------------------------ |
-| PyTorch1.11.0 | Python3.7.x(>=3.7.5), Python3.8.x, Python3.9.x, Python3.10.x |
-| PyTorch2.1.0  | Python3.8.x, Python3.9.x, Python3.10.x, Python 3.11.x        |
-| PyTorch2.2.0  | Python3.8.x, Python3.9.x, Python3.10.x                       |
-| PyTorch2.3.1  | Python3.8.x, Python3.9.x, Python3.10.x, Python 3.11.x        |
-| PyTorch2.4.0  | Python3.8.x, Python3.9.x, Python3.10.x, Python 3.11.x        |
-| PyTorch2.5.1  | Python3.9.x, Python3.10.x, Python 3.11.x                     |
-
-最后根据版本的匹配信息，最合适的版本可能就是：
-
-- CANN 7.0.0
-- python 3.8
-- torch 2.1.0
-- torch-npu 2.1.0
-
-先这样尝试一次，使用如下命令创建 conda 虚拟环境：
-
-```python
-conda create --name transvg3.8 python=3.8
-```
-
-之后安装 torch 和 torch-npu：
-
-```python
-pip3 install torch==2.1.0
-
-# torch-npu 的依赖包
-pip3 install pyyaml
-pip3 install setuptools
-
-pip3 install torch-npu==2.1.0
-```
-
-### 现在使用的脚本
+### CPU 推理脚本
 
 ```python
 import argparse
 import onnxruntime as ort
 import numpy as np
-from PIL import Image
-import torchvision.transforms.functional as F
-from torchvision import transforms
-from transformers import BertTokenizer
+from PIL import Image  # Python Imaging Library 的一部分，通常指 Pillow 库。支持广泛的图像格式，同时提供了强大的图像处理和操作功能。
+from torchvision import transforms  # transforms 模块提供了常用的图像变换操作，如裁剪、缩放、归一化等。
+import torchvision.transforms.functional as F  # F 提供了一些函数式接口，允许对单个图像执行低级别的操作。
+from transformers import BertTokenizer  # Hugging Face 的 transformers 库的一部分，BertTokenizer 用于加载预训练的 BERT 模型分词器。它能够将文本转换成 BERT 模型可以理解的格式，即词汇索引序列。
 import time
-from tqdm import tqdm
+from tqdm import tqdm  # tqdm 是一个快速、可扩展的进度条库，适用于 Python 和 CLI 环境。可以实时显示循环或过程的进度条。
 
 
 # --- 图像预处理 ---
-# 注意：这里的预处理需要严格匹配训练/导出时的设置
-# 参考 datasets/transforms.py 和 train.py/eval.py 中的参数
-# 例如 imsize, mean, std 等
+# image_path 是输入图像的路径
+# imsize 是图像的尺寸
 def preprocess_image(image_path, imsize=640):
-    """
-    加载图像并进行预处理。
-    返回图像张量和图像掩码。
-    """
+    # 将图像转换为 RGB 模式，这样可以确保图像以红、绿、蓝三通道的形式被处理，即使原始图像有不同的色彩模型（如灰度图或 CMYK）
     img = Image.open(image_path).convert('RGB')
 
     # 基本的尺寸调整和转换为 Tensor
-    # 你需要根据训练时的具体 augmentation 和 normalization 进行调整
-    # 例如，是否使用了 RandomResize, Normalize 等
-    # --- 重点：这里的图像变换需要和 infer_test.py 中的 make_vg_transform('test', ...) 保持一致 ---
-    # transform = transforms.Compose([
-    #     transforms.Resize((imsize, imsize)), # 直接缩放到方形，可能与 infer_test 不同
-    #     transforms.ToTensor(),
-    #     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) # 确保使用了归一化
-    # ])
-    # --- 采用与 infer_test.py 类似的变换 ---
+    # 使用 pytorch 的 transforms.Compose 方法组合一系列图像变换操作，使得这些操作可以按顺序应用于图像。
     transform = transforms.Compose([
-        transforms.Resize(imsize), # Resize shorter side to imsize
-        transforms.CenterCrop(imsize), # Crop to square imsize
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        transforms.Resize(imsize), # 调整图像大小，使得较短的一边等于 imsize（在这个例子中默认是 640 像素），而另一边按照原始比例进行缩放。
+        transforms.CenterCrop(imsize), # 从图像的中心裁剪出一个尺寸为 imsize * imsize 的正方形区域。进一步确保输出图像是正方形，并且具有指定的像素尺寸。
+        transforms.ToTensor(), # 将图像转换为 Pytorch 的 Tensor 格式，并调整其形状以适应深度学习模型的输入要求
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # 对图像进行标准化处理。给定的均值和标准差分别对应 RGB 三个通道，它们通常用于在 ImageNet 数据集上预训练的模型。此步骤有助于加快模型的收敛速度，并可能提高模型性能。
     ])
 
+    # 将之前定义的所有变换操作应用到变量 img 上，结果是一个经过预处理的张量 img_tensor，它可以直接作为输入传递给神经网络模型。
     img_tensor = transform(img)
 
     # ONNX Runtime 需要 NumPy array
-    # 添加 batch 维度
+    # unsqueeze(0) 是在张良中添加一个新的维度，位置在最前面。numpy() 将 Pytorch 张量转换为 Numpy 数组。
     img_np = img_tensor.unsqueeze(0).numpy()
 
-    # 创建图像掩码 (image_mask)
-    # 对于单个图像且没有显式padding的情况（如此处的Resize+CenterCrop），
-    # mask 通常是全 False (或 0)。形状为 [batch_size, H, W]
-    # 参考 utils.misc.nested_tensor_from_tensor_list 的实现
-    mask_np = np.zeros((1, imsize, imsize), dtype=np.bool_) # 使用 bool 类型，ONNX Runtime 会处理
+    # 创建了一个形状为 (1, imsize, imsize) 的三维 Numpy 数组 mask_np，并将其所有元素初始化为布尔值 False。
+    # 这个数组可以用来作为掩码，例如在图像处理任务中标识感兴趣区域、忽略某些像素点等。
+    # 使用 dtype=np.bool_ 指定了数组的数据类型为 bool 类型，ONNX Runtime 会处理。
+    mask_np = np.zeros((1, imsize, imsize), dtype=np.bool_)
 
-    return img_np, mask_np # <--- 返回图像张量和掩码
+    # 返回图像张量和掩码
+    # img_np 形状为 (1,3,imsize,imsize)，mask_np 形状为 (1,imsize,imsize)
+    return img_np, mask_np
 
 # --- 文本预处理 ---
+# 使用 BERT tokenizer 对文本进行编码。
+# text - 需要处理文本字符串
+# tokenizer - 一个预训练的 BERT 分词器实例，用于将文本转换为模型可接受的输入格式
+# max_query_len=20 - 文本的最大长度，最大为 20。如果超过这个长度，会被截断；如果不足，则会填充到这个长度。
 def preprocess_text(text, tokenizer, max_query_len=20):
-    """
-    使用 BERT tokenizer 对文本进行编码。
-    """
-    # 参考 datasets/__init__.py 中的 ReferItDataset 或其他数据集类的 __getitem__
-    # 以及 infer_test.py 中的文本处理
+    # 使用提供的 tokenizer 对输入文本进行编码，并设置参数以控制填充和截断
+    # return_tensors='pt' 标识返回 pytorch 张量
+    # padding 和 truncation 确保所有输出具有相同的长度，通过填充或截断实现
     tokenized = tokenizer(text, return_tensors='pt', padding='max_length', truncation=True, max_length=max_query_len)
-    # ONNX Runtime 需要 NumPy array
+
+    # ONNX Runtime 需要 NumPy array 作为输入
     input_ids = tokenized['input_ids'].numpy()
+
     # 注意：原始模型的 text_mask 是 1 表示有效，0 表示 padding
     # BertTokenizer 的 attention_mask 也是 1 表示有效，0 表示 padding，所以可以直接用
     # 但 ONNX 导出时 NestedTensor 的 mask 是 True 表示 padding，False 表示有效
@@ -395,7 +345,7 @@ def preprocess_text(text, tokenizer, max_query_len=20):
     # 则这里需要转换： text_mask_np = (tokenized['attention_mask'] == 0).numpy()
     # 但根据 infer_test.py 导出的输入名称 'text_mask'，它很可能直接使用了 attention_mask。
     # 如果推理失败或结果错误，再尝试转换： text_mask_np = (tokenized['attention_mask'] == 0).numpy().astype(np.bool_)
-    attention_mask = tokenized['attention_mask'].numpy().astype(np.int64) # 确保是 bool 类型
+    attention_mask = tokenized['attention_mask'].numpy().astype(np.int64) # 如果使用 np.bool_ 就会报错
     # 返回 token ids 和 attention mask (作为 text_mask)
     return input_ids, attention_mask
 
@@ -454,8 +404,8 @@ def main(args):
         input_text_mask_name: text_mask_np
     }
 
-    print("Preheating inference for 5 times")
-    for _ in tqdm(range(5), desc="Preheating Progress"):
+    print("Preheating inference for 1 times")
+    for _ in tqdm(range(1), desc="Preheating Progress"):
         outputs = session.run([output_name], inputs)
 
     # 6. 执行推理
@@ -547,16 +497,24 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     main(args)
+
 ```
 
 执行脚本：
 
 ```bash
 HF_ENDPOINT=https://hf-mirror.com
-python onnx_infer.py --model_path ./transvg.onnx --image_path ../ln_data/other/images/mscoco/images/train2014/COCO_train2014_000000000077.jpg --text_query "skateboard" --output_path ./result_image.png
+
+python onnx_infer.py --model_path ./transvg.onnx  --run_iter 1 --output_path ./result_image.png --image_path ../ln_data/other/images/mscoco/images/train2014/COCO_train2014_000000000077.jpg --text_query "skateboard" 
 ```
 
+### 使用 atc 转换模型
 
+```bash
+atc --model=transvg.onnx --framework=5 --output=onnx_transvg --soc_version=Ascend310B1
+```
+
+失败，报错。
 
 
 
