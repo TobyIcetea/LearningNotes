@@ -418,6 +418,105 @@ func threeSum(nums []int) [][]int {
 
 将效率从 O(n^2logn) 提升到了 O(n^2)。
 
+## 10. 最接近的三数之和（16）
+
+给你一个长度为 `n` 的整数数组 `nums` 和 一个目标值 `target`。请你从 `nums` 中选出三个整数，使它们的和与 `target` 最接近。
+
+返回这三个数的和。
+
+假定每组输入只存在恰好一个解。
+
+```go
+func threeSumClosest(nums []int, target int) int {
+	// 这次是固定一个数字，用两个指针来获取另外两个数字
+
+	sort.Ints(nums)
+
+	closestSum := nums[0] + nums[1] + nums[2]
+	closestDiff := Abs(closestSum - target)
+	for i := 0; i < len(nums)-2; i++ {
+		left := i + 1
+		right := len(nums) - 1
+		for left < right {
+			sum := nums[i] + nums[left] + nums[right]
+			if sum == target {
+				return sum
+			}
+			if Abs(sum-target) < closestDiff {
+				closestDiff = Abs(sum - target)
+				closestSum = sum
+			}
+			if sum < target {
+				left++
+			} else {
+				right--
+			}
+		}
+	}
+	return closestSum
+}
+
+func Abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+```
+
+## 11. 电话号码的字母组合（17）
+
+给定一个仅包含数字 `2-9` 的字符串，返回所有它能表示的字母组合。答案可以按 **任意顺序** 返回。
+
+给出数字到字母的映射如下（与电话按键相同）。注意 1 不对应任何字母。
+
+![img](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/200px-telephone-keypad2svg.png)
+
+```go
+func letterCombinations(digits string) []string {
+	if len(digits) == 0 {
+		return []string{}
+	}
+
+	// 定义一个 map 来存储数字和字母的映射关系
+	digits2Letters := map[rune]string{
+		'2': "abc",
+		'3': "def",
+		'4': "ghi",
+		'5': "jkl",
+		'6': "mno",
+		'7': "pqrs",
+		'8': "tuv",
+		'9': "wxyz",
+	}
+
+	// 定义一个 slice 来存储结果
+	res := make([]string, 0)
+
+	// 定义一个函数来进行 backtracking
+	var backtrack func(index int, path string)
+	backtrack = func(index int, path string) {
+		// 如果 index 等于 digits 的长度，说明已经找到一个组合
+		if index == len(digits) {
+			res = append(res, path)
+			return
+		}
+
+		// 获取当前数字对应的字母
+		letters := digits2Letters[rune(digits[index])]
+		for i := 0; i < len(letters); i++ {
+			backtrack(index+1, path+string(letters[i]))
+		}
+	}
+	backtrack(0, "")
+	return res
+}
+```
+
+
+
+
+
 
 
 
@@ -429,10 +528,6 @@ func threeSum(nums []int) [][]int {
 待做题目：
 
 ```python
-16. 最接近的三数之和
-44.8%
-中等
-
 17. 电话号码的字母组合
 62.1%
 中等

@@ -448,7 +448,51 @@ docker run -d --name https-demo \
 curl -k https://localhost
 ```
 
+## 11. Windows 配置 Linux 免密登录
 
+Windows 中生成公钥和私钥：
+
+```powershell
+ssh-keygen.exe -t rsa
+```
+
+一路 Enter 确认，最后会在`C:\Users\{你的用户名}\.ssh`目录下生成两个文件，`id_rsa`和`id_rsa.pub`，其中：
+
+```bash
+id_rsa      私钥文件
+id_rsa.pub	公钥文件
+```
+
+打开公钥文件，将公钥文件的内容复制到 Linux 主机中的 `~/.ssh/authorized_keys` 中：
+
+```bash
+(base) root@atlas:~/.ssh# cat authorized_keys
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQChmxFyJTYN+tbWnKnhm/ZF2qjZYyWvmcKjzp3ZAZNT96YrNI8uhZK/91Q0XOqOBhIe+d8FSu+sPnY08WQXjCQ+I0Pk04XA+Fv4S6/ZWkrbw79mbO2kxN1CwfD9c6zrEKD0kvnbIYZiUJtf/r3+yeYa9CV5493bVDsv+YhIrZov6lP/0HAJwUIwh2dmSCM0YbRbvvPFZ32hyMgXzKBLcs7kylTBojBzRSsUAWpCphElep5BxRiha47yQP4VXhTQ8gb1Wcy+ZiEwt2Hw9rBRch8s/IP0WDUrqley/7xrTsGyFP/f35GKcSQ5R9z46z8B5F9csn6SjdWYSn5RZj8X4J//POPG0Ql0AhXawTgwNGEXIsQaVJlKaczC3HINcM5pR16556Orj/sP3ec4LnAUuR8M7EaikOGN3NCBa2g6ylD20x/KN2NfxufWpFVCIxkUXddAl7jCPjjFGvOnJhpWmRb32xPkL1jQHWt8zvwsDD/dloVJZTuG4gjfN+T6H9jgCX0= x2406@JiGeX
+```
+
+确认 Linux 主机的 `/etc/ssh/sshd_config` 配置文件中开启了允许 SSH 免密登录，确认这个文件中的这一行没有被注释：
+
+```bash
+(base) root@atlas:~/.ssh# cat /etc/ssh/sshd_config | grep Pubkey
+PubkeyAuthentication yes
+```
+
+打开 Windows 中的 `C:\Users\[用户名]\.ssh\config`，写入如下内容：
+
+```bash
+Host 192.168.137.100
+  HostName 192.168.137.100
+  User root
+  Port 22
+  PreferredAuthentications publickey
+  IdentityFile C:\Users\X2406\.ssh\id_rsa
+```
+
+之后就可以在 PowerShell 中直接：
+
+```bash
+ssh root@192.168.137.100
+```
 
 
 
