@@ -1183,6 +1183,7 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 import time
+import argparse
 
 # --- 图像预处理 ---
 def preprocess_image(image_path, imsize=640):
@@ -1229,6 +1230,15 @@ def preprocess_text(text, tokenizer, max_query_len=20):
     return input_ids, attention_mask 
 
 def main():
+    parser = argparse.ArgumentParser(description='transvg infer')
+    # 添加必需的参数
+    parser.add_argument('--image_path', type=str, required=True,
+                       help='输入图像的路径')
+    parser.add_argument('--text_query', type=str, required=True,
+                       help='用于识别的文本查询')
+    # 解析参数
+    args = parser.parse_args()
+
     # 加载模型
     model_path = "models/transvg.om"
     session = InferSession(device_id=0, model_path=model_path)
@@ -1244,9 +1254,9 @@ def main():
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
 
     # 预处理输入
-    image_path = "datasets/COCO_train2014_000000000077.jpg"
+    image_path = args.image_path
     imsize = 640
-    text_query = "man on the left"
+    text_query = args.text_query
     max_query_len = 20
 
     # 获取图像张量和图像掩码
@@ -1266,7 +1276,7 @@ def main():
         outputs = session.infer(feeds)
 
     # 执行推理
-    run_iter = 15
+    run_iter = 100
     print(f"Running inference for {run_iter} iterations...")
     inference_times = []
     for _ in tqdm(range(run_iter), desc="Inference Progress"):
@@ -1284,7 +1294,7 @@ def main():
     print(f"Average inference time: {avg_time:.4f} seconds")
     print(f"Standard deviation: {std_dev:.4f} seconds")
 
-    # (可选) 将预测框转换为 xyxy 格式并反归一化到原始图像尺寸
+    # 将预测框转换为 xyxy 格式并反归一化到原始图像尺寸
     try:
         output_path = "output.png"
         img_orig = Image.open(image_path)
@@ -1327,12 +1337,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 ```
 
 执行脚本：
 
 ```bash
-python om_infer.py
+python scripts/om_infer.py --image_path=datasets/COCO_train2014_000000000077.jpg --text_query="man on the left"
 ```
 
 输出：
