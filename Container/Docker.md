@@ -38,6 +38,37 @@
 
 高版本 Centos 可以直接使用 `dnf install docker` 安装 Docker。
 
+### Centos9（WSL）
+
+```bash
+# 卸载现有 docker 相关组件
+sudo dnf remove docker docker-client docker-common podman-docker
+
+# 安装必要依赖
+sudo dnf install dnf-plugins-core
+
+# 添加 docker 仓库
+sudo tee /etc/yum.repos.d/docker-ce.repo <<EOF
+[docker-ce-stable]
+name=Docker CE Stable - \$basearch
+baseurl=https://mirrors.aliyun.com/docker-ce/linux/centos/9/x86_64/stable
+enabled=1
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/docker-ce/linux/centos/gpg
+EOF
+
+# 安装 docker engine
+sudo dnf install docker-ce docker-ce-cli containerd.io
+
+# 启动 docker 服务
+sudo systemctl enable --now docker
+
+# 验证安装
+systemctl status docker
+```
+
+
+
 ### Ubuntu
 
 ```bash
@@ -71,6 +102,9 @@ cat <<EOF >  /etc/docker/daemon.json
   ]
 }
 EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
 ```
 
 如果是在 Kubernetes 中使用 Docker 作为容器运行时，就要多加上一个设置：
@@ -86,16 +120,12 @@ cat <<EOF >  /etc/docker/daemon.json
   ]
 }
 EOF
-```
 
-其中的 `exec-opts` 就是针对于 Kubernetes 的设置。
-
-做完上面的配置之后，都要重启 docker 的 daemon：
-
-```bash
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 ```
+
+其中的 `exec-opts` 就是针对于 Kubernetes 的设置。
 
 注意，其中我设置的加速镜像地址是华为云的地址，因为之前我的阿里云的加速地址莫名不好用了，如果要设置也可以，我的阿里云的加速地址是：`https://le2c3l3b.mirror.aliyuncs.com`。
 
