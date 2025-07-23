@@ -1,5 +1,7 @@
 # Gin
 
+[TOC]
+
 ## 安装
 
 ```go
@@ -128,7 +130,7 @@ DELETE 方法
 
 首先先看几个新的概念：
 
-#### **【静态路由与动态路由】**
+#### 【静态路由与动态路由】
 
 - 静态路由：例如 `/users`，这种路由会精确匹配 `/users` 的请求，用于请求固定资源。
 - 动态路由：或者说叫做参数化路由。例如 `/users/:id`，此时的 `id` 是一个动态参数，可以匹配任意的非空字符段。
@@ -154,7 +156,7 @@ router.GET("/users/:id", func(c *gin.Context) {
 
 -----
 
-#### **【`c.JSON` 返回类型】**
+#### 【`c.JSON` 返回类型】
 
 前面说 `c.String()` 是返回一个 `string` 类型的 `Response`。那么 `c.JSON()` 就是返回一个 `JSON` 类型的 `Response`。
 
@@ -192,7 +194,7 @@ router.GET("/users/:id", func(c *gin.Context) {
 
 ---
 
-#### **【`c.ShouldBindJSON` 方法】**
+#### 【`c.ShouldBindJSON` 方法】
 
 如果说前面的 `c.JSON()` 是去组转一个新的 `Response`，那么这里的 `c.ShouldBindJSON()` 就是去处理 `Request` 的。
 
@@ -402,20 +404,6 @@ World
 > 还以为是什么高级的语法，实际上就是为了观察的时候更方便。把几行代码用一个大括号框起来，是为了展现出他们的逻辑关系，一眼就能看出来他们是一体的，在一块儿处理一个事情。
 >
 > 当然这种语法也不仅仅光是为了好看，还有一些其他的规范，比如说代码块中定义的参数，代码外面是看不到的。但是这就不是很常用了。
-
-### 大量路由实现（TODO）
-
-
-
-
-
-
-
-
-
-
-
-
 
 ## 获取参数
 
@@ -845,6 +833,467 @@ validator.ValidationErrors（具体类型） → 实现了 error 接口
 [root@JiGeX gin-demo]# curl -X POST "http://localhost:8080/register" -H "Content-Type: application/json" -d '{"username": "Jo", "email": "@@@@@", "age": 20}'
 {"error":{"Email":"请输入正确的邮箱格式","Username":"输入长度不足"}}
 ```
+
+## 会话控制
+
+### Cookie
+
+Cookie 就是一个浏览器的键值对。在浏览器中设置好“哪一个域名下的哪一个路由”中含有一个什么样的键值对，再设置好一些过期时间之类的数据，就是 cookie 了。
+
+比如说我们是通过 token 来完成验证的，那么我们可以在浏览器中设置好 token 的 cookie，过期时间一小时。那么接下来一小时内，都不用担心 token 过期了。
+
+```go
+func main() {
+	router := gin.Default()
+
+	router.GET("/set", func(c *gin.Context) {
+		c.SetCookie("user", // cookie 的名称
+			"john",      // cookie 的值
+			3600,        // 过期时间
+			"/",         // 生效路由
+			"localhost", // 作用域名
+			false,       // 是否允许 HTTPS
+			true,        // 是否禁止 JS（是否 httpOnly）
+		)
+		c.String(200, "Cookie 已设置")
+	})
+
+	router.GET("/get", func(c *gin.Context) {
+		user, err := c.Cookie("user")
+		if err != nil {
+			c.String(200, "用户未登录")
+			return
+		}
+		c.String(200, "用户名: %s", user)
+	})
+
+	router.GET("/delete", func(c *gin.Context) {
+		c.SetCookie("user", "", -1, "/", "localhost", false, true)
+		c.String(200, "Cookie 已删除")
+	})
+
+	router.Run(":8080")
+}
+
+```
+
+通过做这个案例，让我对 cookie 有了新的理解：
+
+服务器并不存储 cookie，服务器做的事情只是，在请求的回复中，告知客户端，“你可以存储这样的一个 cookie，之后方便访问”。
+
+这样一个过程之后，客户端需要在每次请求的时候，都带上自己本地存的 cookie 的值（浏览器会自动做这个事儿，但是 curl 命令默认不会自动存取 cookie）。
+
+所以对于上面的过程，如果我们用浏览器访问：
+
+1. 访问 `localhost:8080/get`，显示用户未登录。
+2. 访问 `localhost:8080/set`，显示 Cookie 已设置。
+3. 访问 `localhost:8080/get`，显示用户名：John。
+4. 访问 `localhost:8080/delete`，显示 Cookie 已删除。
+5. 访问 `localhost:8080/get`，显示用户未登录。
+
+但是如果使用 curl 命令，默认情况下是不会存取 cookie 的。
+
+比如现在我们访问 `curl localhost:8080/get`，这时候会显示用户未登录。从代码中可以看到，服务器在通过 `c.Cookie` 读取客户端发来的请求中的 cookie，但是发现没有 cookie，所以肯定是读不到用户的。
+
+现在我们再使用一次 `curl localhost:8080/set -v`，这时候显示“Cookie 已设置”，但是实际上真的设置了吗，并不是。前面说到，服务器并不会存储 Cookie，只会告诉客户端，让客户端可以在本地存储一个什么样的 `cookie`。我们在 `curl` 中加上了 `-v` 选项，所以这次返回的请求中会带有：`Set-Cookie: user=john; Path=/; Domain=localhost; Max-Age=3600; HttpOnly` 这样一条消息。
+
+但是这时候我们再使用一次 `curl localhost:8080/get`，返回的信息还是用户未登录。因为我们访问的时候并没有带上 cookie。
+
+同理，我们直接使用 `curl localhost:8080/delete`，服务器也会返回“Cookie 已删除”，因为删除的原理就是设置 Cookie，将 Cookie 的过期时间设置为一个过去的时间。实际的原理和 `set` 中新建立一个 cookie 差不多。
+
+那么如何使用呢？那就是在访问的时候，手动将 `cookie` 加入到访问的请求中，例如 `curl localhost:8080/get --cookie "user=toby"`，此时就会返回“用户名：toby”。但是，从中很容易发现，cookie 很容易捏造啊。我要是就直接在本地捏造一个 cookie，说我就是 admin 用户，服务器怎么能知道呢？在上面我们做的这个简单的 demo 中，肯定是就没有考虑到这个问题。但是企业的实践中，就会通过“在 Cookie 中存储密文”、“添加 cookie 验证中间件”这些方式，来防止用户窃取 cookie、篡改 cookie 这些问题。
+
+或者是 curl 命令也可以模仿浏览器的行为。由于标准的 curl 就是一个无状态的命令，我们可以添加一些文件来让 `curl` 变成有状态的。比如说使用如下的命令：
+
+```bash
+# 设置 Cookie
+curl -c cookies.txt http://localhost:8080/set
+ 
+# 读取 Cookie（自动从 cookies.txt 发送）
+curl -b cookies.txt http://localhost:8080/get
+```
+
+这时候就会，第一次请求中，浏览器发来一个建立 cookie 的回复，要求本地建立这样一个 cookie，本地就将 cookie 建立在了 `cookies.txt` 文件中。之后每次跟浏览器交互的时候，都从 `cookies.txt` 文件中读取数据，这样就实现了浏览器一样的自动存取 cookie 的需求。
+
+### Session
+
+Session 其实和 Cookie 有类似之处。我第一次跑 session 的 demo 代码，第一个印象就是，这个功能用 cookie 不是也可以做吗？后来发现，Session 其实可以理解为 cookie 的一种更高级的形态，Session 有多种实现方式，Cookie 是其中一种。
+
+上面我们学习 Cookie 的时候，知道了一个知识点：Cookie 都是存储在客户端的。但是 Session 的存储是客户端和服务端都有的。其中，客户端存储的是 Session 的 ID，服务端存储的是 Session 的具体信息。
+
+```go
+func main() {
+	router := gin.Default()
+
+	// 定义加密密钥（确保生产环境使用强密钥）
+	secret := []byte("1234567890123456")
+
+	// 创建基于 Cookie 的存储
+	store := cookie.NewStore(secret)
+	// 添加 Session 中间件
+	router.Use(sessions.Sessions("mysession", store))
+
+	// 定义路由
+	router.GET("/login", loginHandler)
+	router.GET("/user", userHandler)
+	router.GET("/logout", logoutHandler)
+
+	router.Run(":8080")
+}
+
+func loginHandler(c *gin.Context) {
+	// 获取当前 Session
+	session := sessions.Default(c)
+
+	// 写入数据（例如用户登录名）
+	session.Set("username", "Alice")
+	// 必须调用 Save() 保存修改！
+	if err := session.Save(); err != nil {
+		c.JSON(500, gin.H{"error": "保存 Session 失败"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "登录成功"})
+}
+
+func userHandler(c *gin.Context) {
+	session := sessions.Default(c)
+	// 读取数据
+	username := session.Get("username")
+	if username == nil {
+		c.JSON(401, gin.H{"error": "未登录"})
+		return
+	}
+	c.JSON(200, gin.H{"username": username})
+}
+
+func logoutHandler(c *gin.Context) {
+	session := sessions.Default(c)
+	// 删除所有 Session 数据
+	session.Clear()
+	session.Save()
+	c.JSON(200, gin.H{"message": "已退出登录"})
+}
+```
+
+这里，首先我们使用 `secret := []byte("1234567890123456")`，定义了一个用来加密数据的密钥。
+
+之后的 `store := cookie.NewStore(secret)` 是指定了我们存储的时候，使用 `secret` 来加密存储的数据，并且返回了一个 `store` 的具体对象。
+
+之后又通过 `router.Use(sessions.Sessions("mysession", store))` 定义了一个中间件。相当于是对于发来的每一个请求，都要去匹配一个 ID 是 `mysession` 的 cookie，并且存储的时候，是将信息存储到 `store` 中的。
+
+如果是在浏览器中访问，直接 `/login`、`/user`、`/logout` 这样去访问就行，浏览器会自动处理这些 token。
+
+如果是 `curl` 命令，就比较复杂了：
+
+```bash
+[root@JiGeX gin-demo]# curl -v localhost:8080/login
+
+此时返回的信息中，有一行数据是：
+ Set-Cookie: mysession=MTc1MzI0MDQ2N3xEWDhFQVFMX2dBQUJFQUVRQUFBbl80QUFBUVp6ZEhKcGJtY01DZ0FJZFhObGNtNWhiV1VHYzNSeWFXNW5EQWNBQlVGc2FXTmx8b9KPuBJs30caASgGW0zUrRuByFs10OynqL3ls3WyRmQ=; Path=/; Expires=Fri, 22 Aug 2025 03:14:27 GMT; Max-Age=2592000; Secure; SameSite=None
+ 意思是让我们在本地设置一个 Cookie，cookie 的键值对内容就是：mysession=...
+ 
+ 
+[root@JiGeX gin-demo]# curl -v localhost:8080/user --cookie "mysession=MTc1MzI0MDQ2N3xEWDhFQVFMX2dBQUJFQUVRQUFBbl80QUFBUVp6ZEhKcGJtY01DZ0FJZFhObGNtNWhiV1VHYzNSeWFXNW5EQWNBQlVGc2FXTmx8b9KPuBJs30caASgGW0zUrRuByFs10OynqL3ls3WyRmQ="
+
+之后访问的时候，就要带上这个 token，才能访问。
+```
+
+整个流程相当于是：客户端在访问的时候，在 cookie 中带上访问的 session 的 id（就是那个极其复杂的字符串），之后 gin 的中间件会检查这个 session 的 id 解析之后是否正确。如果是正确的的话，之后就可以根据这个 session 的 ID 去存储后端设置、修改数据了。
+
+```go
+客户端请求
+   │
+   └─▶ 携带 Cookie: mysession=abc123
+          │
+服务端处理
+   │
+   ├─ 中间件解析 Cookie，获取 Session ID（abc123）
+   │
+   ├─ 根据 ID 从 Store（如 Redis）加载 Session 数据
+   │
+   ├─ 数据存入上下文 → 路由代码通过 sessions.Default(c) 读取/修改
+   │
+   └─ 返回响应时，如有修改，更新 Store 并设置新 Cookie
+```
+
+## 中间件
+
+### 默认中间件
+
+如果使用 `router := gin.Default()`，则会在路由器中自动添加两个中间件：`Logger` 和 `Recovery`。
+
+```go
+func main() {
+	// 默认开启 Logger 和 Recovery 中间件
+	router := gin.Default()
+
+	router.GET("/hello", func(c *gin.Context) {
+		c.String(200, "Hello gin!")
+	})
+
+	router.Run(":8080")
+}
+```
+
+如果想要创建一个空白的基础路由器，一个中间件都没有，可以使用 `r := gin.New()` 来创建：
+
+```go
+func main() {
+	// 没有加入中间件
+	router := gin.New()
+
+	router.GET("/hello", func(c *gin.Context) {
+		c.String(200, "Hello gin!")
+	})
+
+	router.Run(":8080")
+}
+```
+
+其中的 `Logger` 中间件是一个打印 HTTP 日志的中间件。它的效果就是在服务器上会对每一次请求开启日志记录的功能：
+
+![image-20250723152314288](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250723152314288.png)
+
+其中的 `Recovery` 是一个可以放置崩溃的中间件。当请求处理逻辑发生 panic 的时候，捕获错误并返回 500 错误，防止服务器崩溃。
+
+例如对于如下的代码：
+
+```go
+func main() {
+	// 没有加入中间件
+	router := gin.Default()
+
+	router.GET("/hello", func(c *gin.Context) {
+		panic("手动触发 panic")
+		c.String(200, "你看不到我")
+	})
+
+	router.GET("world", func(c *gin.Context) {
+		c.String(200, "World")
+	})
+
+	router.Run(":8080")
+}
+```
+
+我们使用默认的路由器配置（带有 `Recovery`），设置了两个路由，分别是 `hello` 和 `world`。其中，`hello` 的执行一定会触发 `panic`，`world` 的执行可以正常返回信息。
+
+此时我们在客户端测试：
+
+```go
+// 访问 hello，不会看到回复中的输出，返回的错误状态码是 500
+[root@JiGeX gin-demo]# curl localhost:8080/hello -v
+
+// 继续访问 world，发现可以正常输出
+[root@JiGeX gin-demo]# curl localhost:8080/world -v
+World
+```
+
+此时服务器中显示：
+
+![image-20250723152951938](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250723152951938.png)
+
+可以发现，服务器捕获到了错误，并且发生了 panic 不会导致服务器中的服务停止。
+
+但是如果如果使用 `New()` 来创建一个不带有 `Recovery()` 中间件的路由器，最后的效果……我只能说展示出来的和这个不太一样吧：
+
+![image-20250723153348347](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250723153348347.png)
+
+访问 hello 的时候，会爆出这样的很多的错误。我还以为服务器会直接停止，结果并没有，之后再访问 world，还是会继续提供服务的。
+
+可以看到这个 `Recovery()` 肯定是做了一些事情的，但是具体是什么，我现在也还研究不透。
+
+### 自定义中间件
+
+中间件本质上是一个函数，要求这个函数返回 `gin.HandlerFunc` 类型。
+
+其中，`gin.HandlerFunc` 类型的定义是：
+
+```go
+type HandlerFunc func(*Context)
+```
+
+所以在我们的代码中，我们对中间件的定义，可以使用如下的骨架代码：
+
+```go
+func MyMilldeware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // 请求处理前执行的逻辑
+    	// ...
+        
+        c.Next()
+    	
+        // 请求处理后执行的逻辑
+        // ...
+    }
+}
+```
+
+其中，`c.Next()` 是一个函数，可以看成是一个分界线。在 `c.Next()` 之前的逻辑是在请求处理之前执行的部分，`c.Next()` 之后的代码是请求处理之后执行的部分。
+
+#### demo1 - 记录请求路径
+
+比如说，下面是一个简单的，打印出请求路径的中间件实现：
+
+```go
+func LogPath() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 请求处理前记录路径
+		println("请求路径:", c.Request.URL.Path)
+		c.Next()
+	}
+}
+
+func main() {
+	router := gin.Default()
+
+	// 全局使用中间件
+	router.Use(LogPath()) // 所有路由都会触发
+
+	router.GET("/hello", func(c *gin.Context) {
+		c.String(200, "Hello!")
+	})
+
+	router.Run(":8080")
+}
+```
+
+之后在请求的时候，服务器就会输出：
+
+![image-20250723154456251](https://xubowen-bucket.oss-cn-beijing.aliyuncs.com/img/image-20250723154456251.png)
+
+#### demo2 - 添加自定义 Header
+
+假如我们要在所有的响应头中添加 `X-MyApp-Version: v1.0`。
+
+```go
+func AddVersionHeader() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 先处理请求
+		c.Next()
+
+		// 处理完毕后添加 Header
+		c.Writer.Header().Set("X-MyApp-Version", "v1.0")
+	}
+}
+
+func main() {
+	router := gin.Default()
+
+	router.Use(AddVersionHeader())
+
+	router.GET("/info", func(c *gin.Context) {
+		c.String(200, "Info Page")
+	})
+
+	router.Run(":8080")
+}
+```
+
+客户端访问的时候，可以使用 `curl -I` 来查看响应头的信息：
+
+```go
+[root@JiGeX gin-demo]# curl localhost:8080/info -I
+...
+X-Myapp-Version: v1.0
+```
+
+#### demo3 - 中间件间传递数据
+
+在中间件中设置数据，路由处理函数中可以获取。
+
+```go
+func SetRequestID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 生成一个随机 ID（示例用简单逻辑）
+		requestID := "REQ-123"
+		// 将 ID 存入 Context，供后续使用
+		c.Set("request_id", requestID)
+		c.Next()
+	}
+}
+
+func main() {
+	router := gin.Default()
+
+	router.Use(SetRequestID())
+
+	router.GET("/id", func(c *gin.Context) {
+		// 从 Context 中获取 ID
+		id, _ := c.Get("request_id")
+		c.String(200, "Request ID: %s", id)
+	})
+}
+```
+
+客户端访问：
+
+```go
+[root@JiGeX gin-demo]# curl localhost:8080/id
+Request ID: REQ-123
+```
+
+#### demo4 - 终端请求的中间件
+
+比如检查 API 密钥，如果不合法则终止请求。
+
+```go
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 假设从 Header 获取 API 密钥
+		apiKey := c.GetHeader("X-API-Key")
+		if apiKey != "my-secret-key" {
+			// 中断后续处理，返回 401 错误
+			c.AbortWithStatusJSON(401, gin.H{"error": "Invalid API Key"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func main() {
+	router := gin.Default()
+
+	// 只有 private 路由组需要认证
+	private := router.Group("/private")
+	private.Use(AuthMiddleware())
+	{
+		private.GET("/data", func(c *gin.Context) {
+			c.String(200, "敏感数据")
+		})
+	}
+
+	// 公开路由不需要认证
+	router.GET("/public", func(c *gin.Context) {
+		c.String(200, "公开信息")
+	})
+
+	router.Run(":8080")
+}
+```
+
+访问的时候：
+
+```go
+// 访问 /public 路由
+[root@JiGeX gin-demo]# curl localhost:8080/public
+公开信息
+
+// 使用正确的 api-key 访问 /private/data 路由
+[root@JiGeX gin-demo]# curl localhost:8080/private/data -H "X-API-Key: my-secret-key"
+敏感数据[root@JiGeX gin-demo]#
+
+// 使用错误的 api-key 访问 /private/data 路由
+[root@JiGeX gin-demo]# curl localhost:8080/private/data -H "X-API-Key: my-secret"
+{"error":"Invalid API Key"}
+```
+
+
+
+
+
+
 
 
 
