@@ -420,6 +420,9 @@ openssl req -x509 -new -key certs/nginx.key -days 365 \
 cat > nginx/nginx.conf <<'EOF'
 events {}
 http {
+    include   mime.types;
+    default_type  application/octet-stream;
+    
     server {
         listen 443 ssl;
         ssl_certificate /etc/nginx/certs/nginx.pem;

@@ -214,6 +214,22 @@ MariaDB [testdb]> desc users;
 +------------+---------------------+------+-----+---------+----------------+
 ```
 
+### 使用 gormgen 工具
+
+安装：
+
+```go
+go install gorm.io/gen/tools/gentool@latest
+```
+
+使用：
+
+```go
+gentool -db mysql -dsn 'root:BW021129@tcp(127.0.0.1:3306)/testdb' -onlyModel -modelPkgName ./model
+```
+
+之后就可以在当前目录下创建一个 model 文件夹，其中包含对 testdb 数据库中每张表中元素的类型定义。
+
 ### Create 创建
 
 ```go
@@ -229,7 +245,11 @@ func createUser(db *gorm.DB) User {
 }
 ```
 
+> 使用 Create 创建，就是直接在本地做好要创建的对象，或者是对象的切片，之后直接将对象或者对象的切片作为参数，传入到 Create 函数中。
+
 ### Query 查询
+
+> 数据库刚起来的时候，查询方面还叫 `Retrieve`（检索），所以查询就简称为 `R`。
 
 ```go
 // 查询用户
@@ -263,6 +283,11 @@ func queryUser(db *gorm.DB, id uint) {
 }
 ```
 
+> 之后统一一下，所有的查询的方法，都是在 db 之后首先加上 `.Where("value = ?", key1)` 这样的限制之后，再进行查询。如果只需要一个，就使用 First；如果需要很多，就使用 Find。如果使用 First，需要传入一个对象的地址；如果使用 Find，需要传入一个对象的切片的地址。
+>
+> - `db.Where("age = ?", 18).Find(&employees)`（表示查询 age = 18 的数据）
+> - `db.Find(&employee, 100)`（表示查询主键是 100 的记录）
+
 ### Update 更新
 
 ```go
@@ -287,6 +312,20 @@ func updateUser(db *gorm.DB, id uint) {
 }
 ```
 
+> 考虑性能的话，最好使用的还是更新单个字段。这样的话，并不需要去定义新的对象，直接写操作的语句就行：
+>
+> ```go
+> db.Model(&model.Employee{}).Where("workno < ?", 10).Update("age", 10)
+> ```
+>
+> 相当于 SQL：
+>
+> ```sql
+> UPDATE `employee` SET `age`=10 WHERE workno < 10
+> ```
+>
+> 注意：Update 的写法是个特例，**必须要加上一个 `.Model(&Employee{})` 的链式法则**。其中的 `.Model` 的作用是显式告诉 GORM 我要操作的是 Employee 这张表。其他的几个 Create、Query、Delete 在传参的时候都会加入 `&employee`、`&employees` 这样的参数，但是 Update 没有，所以这里 Update 的处理和其他几个不太一样。
+
 ### Delete 删除
 
 ```go
@@ -307,6 +346,11 @@ func deleteUser(db *gorm.DB, id uint) {
 	log.Printf("删除后验证：记录数=%d（0 表示已删除）\n", count)
 }
 ```
+
+> Delete 的写法其实和 Query 很像，如果是删除一个就是通过主键进行删除；如果是删除很多个，就是通过 `.Where` 设定条件之后，一起删除。
+>
+> - `db.Where("age = ?", 10).Delete(&employees)`（删除所有 age = 10 的记录）
+> - `db.Delete(&employee, 12)`（删除主键是 12 的数据）
 
 ### 综合测试
 
@@ -451,5 +495,22 @@ func main() {
 
 ## 总结
 
-TODO：总结一下 CURD 的几个核心的方法。
+| 事务                   | 核心 API                                                     | 说明                                           |
+| ---------------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| Create                 | `result := db.Create(&user)`                                 | user 是自己建的结构体                          |
+| Query（主键查询）      | `err := db.First(&user, id).Error`                           | user 是自己建的空结构体，id 是主键             |
+| Query（条件查询）      | `db.Where("age > ?", 18).Order("created at desc").Limit(5).Find(users)` | users 是提前定义好的空 user 切片               |
+| Update（更新单个字段） | `db.Model(&user).Update("age", 26)`                          | `user` 是用 First 查出来的结构体               |
+| Update（全量更新）     | `err := db.Save(&user).Error`                                | 提前用 First 查出 user，再更改好 user 中的内容 |
+| Delete                 | `db.Delete(&user)`                                           | user 是提前用 First 查出来的数据               |
+
+
+
+
+
+
+
+
+
+
 
